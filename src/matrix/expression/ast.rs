@@ -103,7 +103,7 @@ impl<'n> AstNode<'n> {
 mod tests {
     use super::*;
     use approx::{assert_relative_eq, AbsDiffEq, RelativeEq};
-    use glam::DVec2;
+    use glam::{DVec2, DVec3};
 
     impl AbsDiffEq for NumberOrMatrix {
         type Epsilon = <f64 as AbsDiffEq>::Epsilon;
@@ -143,12 +143,15 @@ mod tests {
     #[test]
     fn ast_node_evaluation() {
         let map2 = MatrixMap2::new();
+        let map3 = MatrixMap3::new();
 
+        // 10
         assert_relative_eq!(
             AstNode::evaluate(AstNode::Number { number: 10. }, &map2).unwrap(),
             NumberOrMatrix::Number(10.)
         );
 
+        // 3.2 * 5
         assert_relative_eq!(
             AstNode::evaluate(
                 AstNode::Multiply {
@@ -161,6 +164,7 @@ mod tests {
             NumberOrMatrix::Number(16.)
         );
 
+        // 1 + 2
         assert_relative_eq!(
             AstNode::evaluate(
                 AstNode::Add {
@@ -173,6 +177,7 @@ mod tests {
             NumberOrMatrix::Number(3.)
         );
 
+        // 3 * [2 -2.2; 1.5 10]
         assert_relative_eq!(
             AstNode::evaluate(
                 AstNode::Multiply {
@@ -188,6 +193,42 @@ mod tests {
                 DVec2::new(6., 4.5),
                 DVec2::new(-6.6, 30.)
             )))
+        );
+
+        // [1 -2.34 2.3; 2.5 0 -0.5; 3.1 0.5 9.2] * ((1.2 + 2.3) * [2.3 -1.2 -3; 1.4 3 1; -3.2 -6.3 2.22])
+        assert_relative_eq!(
+            AstNode::evaluate(
+                AstNode::Multiply {
+                    left: Box::new(AstNode::Anonymous3dMatrix {
+                        matrix: DMat3::from_cols(
+                            DVec3::new(1., 2.5, 3.1),
+                            DVec3::new(-2.34, 0., 0.5),
+                            DVec3::new(2.3, -0.5, 9.2)
+                        )
+                    }),
+                    right: Box::new(AstNode::Multiply {
+                        left: Box::new(AstNode::Add {
+                            left: Box::new(AstNode::Number { number: 1.2 }),
+                            right: Box::new(AstNode::Number { number: 2.3 })
+                        }),
+                        right: Box::new(AstNode::Anonymous3dMatrix {
+                            matrix: DMat3::from_cols(
+                                DVec3::new(2.3, 1.4, -3.2),
+                                DVec3::new(-1.2, 3., -6.3),
+                                DVec3::new(-3., 1., 2.22)
+                            )
+                        })
+                    })
+                },
+                &map3
+            )
+            .unwrap(),
+            NumberOrMatrix::Matrix(Matrix2dOr3d::ThreeD(DMat3::from_cols(
+                DVec3::new(-29.176, 25.725, -75.635),
+                DVec3::new(-79.485, 0.525, -210.63),
+                DVec3::new(-0.819, -30.135, 40.684)
+            ))),
+            epsilon = 0.00000000000001
         );
     }
 }
