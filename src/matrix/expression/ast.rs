@@ -3,7 +3,7 @@
 use std::fmt;
 
 use crate::matrix::{
-    CannotAddDifferentDimensions, CannotMultiplyDifferentDimensions, Matrix2dOr3d, MatrixMap,
+    map::prelude::*, CannotAddDifferentDimensions, CannotMultiplyDifferentDimensions, Matrix2dOr3d,
     MatrixName,
 };
 use glam::f64::{DMat2, DMat3};
@@ -75,7 +75,7 @@ pub enum EvaluationError {
 
 impl<'n> AstNode<'n> {
     /// Evaluate this AST node by recursively evaulating whatever else needs to be evaluated.
-    pub fn evaluate(self, map: &MatrixMap) -> Result<NumberOrMatrix, EvaluationError> {
+    pub fn evaluate(self, map: &impl MatrixMap) -> Result<NumberOrMatrix, EvaluationError> {
         match self {
             Self::Multiply { left, right } => Ok(NumberOrMatrix::try_mul(
                 left.evaluate(map)?,
@@ -105,10 +105,10 @@ mod tests {
 
     #[test]
     fn ast_node_evaluation() {
-        let map = MatrixMap::new();
+        let map2 = MatrixMap2::new();
 
         assert_eq!(
-            AstNode::evaluate(AstNode::Number { number: 10. }, &map),
+            AstNode::evaluate(AstNode::Number { number: 10. }, &map2),
             Ok(NumberOrMatrix::Number(10.))
         );
 
@@ -118,7 +118,7 @@ mod tests {
                     left: Box::new(AstNode::Number { number: 3.2 }),
                     right: Box::new(AstNode::Number { number: 5. })
                 },
-                &map
+                &map2
             ),
             Ok(NumberOrMatrix::Number(16.))
         );
@@ -129,7 +129,7 @@ mod tests {
                     left: Box::new(AstNode::Number { number: 1. }),
                     right: Box::new(AstNode::Number { number: 2. })
                 },
-                &map
+                &map2
             ),
             Ok(NumberOrMatrix::Number(3.))
         );

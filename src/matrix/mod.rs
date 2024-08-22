@@ -7,8 +7,6 @@ use thiserror::Error;
 pub mod expression;
 pub mod map;
 
-pub use map::{MatrixMap, MatrixMapError};
-
 /// The name of a named matrix. Essentially a variable name.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MatrixName<'n>(&'n str);
