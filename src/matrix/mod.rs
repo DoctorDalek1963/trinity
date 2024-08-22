@@ -83,3 +83,44 @@ impl Matrix2dOr3d {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::{AbsDiffEq, RelativeEq};
+
+    impl AbsDiffEq for Matrix2dOr3d {
+        type Epsilon = <f64 as AbsDiffEq>::Epsilon;
+
+        fn default_epsilon() -> Self::Epsilon {
+            <f64 as AbsDiffEq>::default_epsilon()
+        }
+
+        fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
+            match (self, other) {
+                (Self::TwoD(a), Self::TwoD(b)) => a.abs_diff_eq(*b, epsilon),
+                (Self::ThreeD(a), Self::ThreeD(b)) => a.abs_diff_eq(*b, epsilon),
+                _ => false,
+            }
+        }
+    }
+
+    impl RelativeEq for Matrix2dOr3d {
+        fn default_max_relative() -> Self::Epsilon {
+            <f64 as RelativeEq>::default_max_relative()
+        }
+
+        fn relative_eq(
+            &self,
+            other: &Self,
+            epsilon: Self::Epsilon,
+            max_relative: Self::Epsilon,
+        ) -> bool {
+            match (self, other) {
+                (Self::TwoD(a), Self::TwoD(b)) => a.relative_eq(b, epsilon, max_relative),
+                (Self::ThreeD(a), Self::ThreeD(b)) => a.relative_eq(b, epsilon, max_relative),
+                _ => false,
+            }
+        }
+    }
+}
