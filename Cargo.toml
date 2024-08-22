@@ -8,3 +8,5 @@ license = "AGPL-3.0-only"
 publish = false
 
 [dependencies]
+glam = "0.29.0"
+thiserror = "1.0.63"
