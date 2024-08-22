@@ -141,7 +141,7 @@ mod tests {
     }
 
     #[test]
-    fn ast_node_evaluation() {
+    fn ast_node_evaluation_success() {
         let map2 = MatrixMap2::new();
         let map3 = MatrixMap3::new();
 
@@ -229,6 +229,72 @@ mod tests {
                 DVec3::new(-0.819, -30.135, 40.684)
             ))),
             epsilon = 0.00000000000001
+        );
+    }
+
+    #[test]
+    fn ast_node_evaluation_failure() {
+        let map2 = MatrixMap2::new();
+        // let map3 = MatrixMap3::new();
+
+        // 3 + [4 -1; -1.5 3]
+        assert_eq!(
+            AstNode::evaluate(
+                AstNode::Add {
+                    left: Box::new(AstNode::Number { number: 3. }),
+                    right: Box::new(AstNode::Anonymous2dMatrix {
+                        matrix: DMat2::from_cols(DVec2::new(4., -1.5), DVec2::new(-1., 3.))
+                    })
+                },
+                &map2
+            ),
+            Err(EvaluationError::CannotAddNumberAndMatrix(
+                CannotAddNumberAndMatrix
+            ))
+        );
+
+        // [1 4 7; 2 5 8; 3 6 9] * [4 -1; 1.5 3]
+        assert_eq!(
+            AstNode::evaluate(
+                AstNode::Multiply {
+                    left: Box::new(AstNode::Anonymous3dMatrix {
+                        matrix: DMat3::from_cols(
+                            DVec3::new(1., 2., 3.),
+                            DVec3::new(4., 5., 6.),
+                            DVec3::new(7., 8., 9.)
+                        )
+                    }),
+                    right: Box::new(AstNode::Anonymous2dMatrix {
+                        matrix: DMat2::from_cols(DVec2::new(4., -1.5), DVec2::new(-1., 3.))
+                    })
+                },
+                &map2
+            ),
+            Err(EvaluationError::CannotMultiplyDifferentDimensions(
+                CannotMultiplyDifferentDimensions
+            ))
+        );
+
+        // [1 4 7; 2 5 8; 3 6 9] + [4 -1; 1.5 3]
+        assert_eq!(
+            AstNode::evaluate(
+                AstNode::Add {
+                    left: Box::new(AstNode::Anonymous3dMatrix {
+                        matrix: DMat3::from_cols(
+                            DVec3::new(1., 2., 3.),
+                            DVec3::new(4., 5., 6.),
+                            DVec3::new(7., 8., 9.)
+                        )
+                    }),
+                    right: Box::new(AstNode::Anonymous2dMatrix {
+                        matrix: DMat2::from_cols(DVec2::new(4., -1.5), DVec2::new(-1., 3.))
+                    })
+                },
+                &map2
+            ),
+            Err(EvaluationError::CannotAddDifferentDimensions(
+                CannotAddDifferentDimensions
+            ))
         );
     }
 }
