@@ -58,6 +58,7 @@
           ];
           shellHook = ''
             ${config.pre-commit.installationScript}
+            export RUST_BACKTRACE=1
           '';
         };
 
