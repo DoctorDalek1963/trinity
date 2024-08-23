@@ -48,6 +48,21 @@ impl NumberOrMatrix {
             _ => Err(CannotAddNumberAndMatrix)?,
         })
     }
+
+    /// Try to raise one thing to the power of another.
+    pub fn try_power(base: Self, power: Self) -> Result<Self, EvaluationError> {
+        match (base, power) {
+            (Self::Number(base), Self::Number(power)) => Ok(Self::Number(base.powf(power))),
+            (Self::Matrix(Matrix2dOr3d::TwoD(_base)), Self::Number(_power)) => {
+                todo!("Raise DMat2 to f64 power?")
+            }
+            (Self::Matrix(Matrix2dOr3d::ThreeD(_base)), Self::Number(_power)) => {
+                todo!("Raise DMat3 to f64 power?")
+            }
+            (Self::Number(_), Self::Matrix(_)) => Err(EvaluationError::CannotRaiseNumberToMatrix),
+            (Self::Matrix(_), Self::Matrix(_)) => Err(EvaluationError::CannotRaiseMatrixToMatrix),
+        }
+    }
 }
 
 /// Cannot add number and matrix.
@@ -71,6 +86,15 @@ pub enum EvaluationError {
 
     #[error("{0}")]
     CannotAddNumberAndMatrix(#[from] CannotAddNumberAndMatrix),
+
+    #[error("Cannot raise a number to the power of a matrix")]
+    CannotRaiseNumberToMatrix,
+
+    #[error("Cannot raise a matrix to the power of a matrix")]
+    CannotRaiseMatrixToMatrix,
+
+    #[error("{0}")]
+    MatrixMapError(#[from] MatrixMapError),
 }
 
 impl<'n> AstNode<'n> {
@@ -85,10 +109,15 @@ impl<'n> AstNode<'n> {
                 left.evaluate(map)?,
                 right.evaluate(map)?,
             )?),
-            Self::Exponent { base, power } => todo!(),
+            Self::Exponent { base, power } => Ok(NumberOrMatrix::try_power(
+                base.evaluate(map)?,
+                power.evaluate(map)?,
+            )?),
             Self::Number { number } => Ok(NumberOrMatrix::Number(number)),
-            Self::NamedMatrix { name } => todo!(),
-            Self::RotationMatrix { degrees } => todo!(),
+            Self::NamedMatrix { name } => Ok(NumberOrMatrix::Matrix(map.get(&name)?.into())),
+            Self::RotationMatrix { degrees } => Ok(NumberOrMatrix::Matrix(Matrix2dOr3d::TwoD(
+                DMat2::from_angle(degrees.to_radians()),
+            ))),
             Self::Anonymous2dMatrix { matrix } => {
                 Ok(NumberOrMatrix::Matrix(Matrix2dOr3d::TwoD(matrix)))
             }
@@ -104,6 +133,7 @@ mod tests {
     use super::*;
     use approx::{assert_relative_eq, AbsDiffEq, RelativeEq};
     use glam::{DVec2, DVec3};
+    use std::f64::consts::FRAC_1_SQRT_2;
 
     impl AbsDiffEq for NumberOrMatrix {
         type Epsilon = <f64 as AbsDiffEq>::Epsilon;
@@ -229,6 +259,15 @@ mod tests {
                 DVec3::new(-0.819, -30.135, 40.684)
             ))),
             epsilon = 0.00000000000001
+        );
+
+        // rot(45)
+        assert_relative_eq!(
+            AstNode::evaluate(AstNode::RotationMatrix { degrees: 45. }, &map2).unwrap(),
+            NumberOrMatrix::Matrix(Matrix2dOr3d::TwoD(DMat2::from_cols(
+                DVec2::new(FRAC_1_SQRT_2, FRAC_1_SQRT_2),
+                DVec2::new(-FRAC_1_SQRT_2, FRAC_1_SQRT_2)
+            )))
         );
     }
 

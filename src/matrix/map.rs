@@ -1,6 +1,7 @@
 //! This module handles and provides the [`MatrixMap`] trait and its primary implementors,
 //! [`MatrixMap2`] and [`MatrixMap3`].
 
+use super::{Matrix2dOr3d, MatrixName};
 use glam::{DMat2, DMat3};
 use std::collections::HashMap;
 use thiserror::Error;
@@ -21,7 +22,7 @@ pub enum MatrixMapError {
 
 /// A map from names to defined matrices.
 pub trait MatrixMap {
-    type MatrixType;
+    type MatrixType: Into<Matrix2dOr3d>;
 
     fn new() -> Self;
 
@@ -31,7 +32,7 @@ pub trait MatrixMap {
         value: Self::MatrixType,
     ) -> Result<(), MatrixMapError>;
 
-    fn get(&self, name: impl Into<String>) -> Result<Self::MatrixType, MatrixMapError>;
+    fn get(&self, name: &MatrixName<'_>) -> Result<Self::MatrixType, MatrixMapError>;
 }
 
 /// A [`MatrixMap`] for 2D matrices
@@ -64,12 +65,11 @@ impl MatrixMap for MatrixMap2 {
     }
 
     /// Get the named matrix from the map, if it exists.
-    fn get(&self, name: impl Into<String>) -> Result<Self::MatrixType, MatrixMapError> {
+    fn get(&self, &MatrixName(name): &MatrixName) -> Result<Self::MatrixType, MatrixMapError> {
         // TODO: Validate name
-        let name: String = name.into();
-        match self.map.get(&name) {
+        match self.map.get(name) {
             Some(matrix) => Ok(*matrix),
-            None => Err(MatrixMapError::NameNotDefined(name)),
+            None => Err(MatrixMapError::NameNotDefined(name.to_owned())),
         }
     }
 }
@@ -107,12 +107,11 @@ impl MatrixMap for MatrixMap3 {
     }
 
     /// Get the named matrix from the map, if it exists.
-    fn get(&self, name: impl Into<String>) -> Result<Self::MatrixType, MatrixMapError> {
+    fn get(&self, &MatrixName(name): &MatrixName) -> Result<Self::MatrixType, MatrixMapError> {
         // TODO: Validate name
-        let name: String = name.into();
-        match self.map.get(&name) {
+        match self.map.get(name) {
             Some(matrix) => Ok(*matrix),
-            None => Err(MatrixMapError::NameNotDefined(name)),
+            None => Err(MatrixMapError::NameNotDefined(name.to_owned())),
         }
     }
 }

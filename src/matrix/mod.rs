@@ -18,6 +18,18 @@ pub enum Matrix2dOr3d {
     ThreeD(DMat3),
 }
 
+impl From<DMat2> for Matrix2dOr3d {
+    fn from(value: DMat2) -> Self {
+        Self::TwoD(value)
+    }
+}
+
+impl From<DMat3> for Matrix2dOr3d {
+    fn from(value: DMat3) -> Self {
+        Self::ThreeD(value)
+    }
+}
+
 impl Mul<Matrix2dOr3d> for f64 {
     type Output = Matrix2dOr3d;
 
