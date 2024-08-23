@@ -1,12 +1,15 @@
 //! This module handles abstract syntax trees for parsed matrix expressions.
 
-use std::fmt;
-
-use crate::matrix::{
-    map::prelude::*, CannotAddDifferentDimensions, CannotMultiplyDifferentDimensions, Matrix2dOr3d,
-    MatrixName,
+use crate::{
+    math::integer_power,
+    matrix::{
+        map::prelude::*, CannotAddDifferentDimensions, CannotMultiplyDifferentDimensions,
+        Matrix2dOr3d, MatrixName,
+    },
 };
+use approx::RelativeEq;
 use glam::f64::{DMat2, DMat3};
+use std::fmt;
 use thiserror::Error;
 
 /// A node in the tree. Also represents the tree itself, since the root is just a node.
@@ -53,11 +56,45 @@ impl NumberOrMatrix {
     pub fn try_power(base: Self, power: Self) -> Result<Self, EvaluationError> {
         match (base, power) {
             (Self::Number(base), Self::Number(power)) => Ok(Self::Number(base.powf(power))),
-            (Self::Matrix(Matrix2dOr3d::TwoD(_base)), Self::Number(_power)) => {
-                todo!("Raise DMat2 to f64 power?")
+            (Self::Matrix(Matrix2dOr3d::TwoD(base)), Self::Number(power)) => {
+                if power.round().relative_eq(
+                    &power,
+                    0.000000001,
+                    <f64 as RelativeEq>::default_max_relative(),
+                ) {
+                    let needs_invert = power < -0.0000000000001;
+                    let power = power.round().abs() as u16;
+
+                    let result = integer_power(base, power);
+
+                    Ok(Self::Matrix(Matrix2dOr3d::TwoD(if needs_invert {
+                        result.inverse()
+                    } else {
+                        result
+                    })))
+                } else {
+                    Err(EvaluationError::CannotRaiseMatrixToNonInteger)
+                }
             }
-            (Self::Matrix(Matrix2dOr3d::ThreeD(_base)), Self::Number(_power)) => {
-                todo!("Raise DMat3 to f64 power?")
+            (Self::Matrix(Matrix2dOr3d::ThreeD(base)), Self::Number(power)) => {
+                if power.round().relative_eq(
+                    &power,
+                    0.000000001,
+                    <f64 as RelativeEq>::default_max_relative(),
+                ) {
+                    let needs_invert = power < -0.0000000000001;
+                    let power = power.round().abs() as u16;
+
+                    let result = integer_power(base, power);
+
+                    Ok(Self::Matrix(Matrix2dOr3d::ThreeD(if needs_invert {
+                        result.inverse()
+                    } else {
+                        result
+                    })))
+                } else {
+                    Err(EvaluationError::CannotRaiseMatrixToNonInteger)
+                }
             }
             (Self::Number(_), Self::Matrix(_)) => Err(EvaluationError::CannotRaiseNumberToMatrix),
             (Self::Matrix(_), Self::Matrix(_)) => Err(EvaluationError::CannotRaiseMatrixToMatrix),
@@ -92,6 +129,9 @@ pub enum EvaluationError {
 
     #[error("Cannot raise a matrix to the power of a matrix")]
     CannotRaiseMatrixToMatrix,
+
+    #[error("Cannot raise a matrix to a non-integer number")]
+    CannotRaiseMatrixToNonInteger,
 
     #[error("{0}")]
     MatrixMapError(#[from] MatrixMapError),
