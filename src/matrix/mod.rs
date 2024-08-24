@@ -8,13 +8,20 @@ pub mod expression;
 pub mod map;
 
 /// The name of a named matrix. Essentially a variable name.
-#[derive(Clone, Debug, PartialEq, Eq)]
+///
+/// A matrix name must start with an uppercase letter, and can contain letters, numbers, and
+/// underscores. `M`, `Matrix`, `X_2`, and `M3_Y5F` are all valid matrix names. But `m`, `matrix`,
+/// `X-2`, and `M5#Y` are all invalid.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MatrixName<'n>(&'n str);
 
 /// A 2D or 3D matrix.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Matrix2dOr3d {
+    /// A two dimensional matrix.
     TwoD(DMat2),
+
+    /// A three dimensional matrix.
     ThreeD(DMat3),
 }
 

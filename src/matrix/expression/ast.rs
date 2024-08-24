@@ -65,7 +65,10 @@ pub enum AstNode<'n> {
 /// Either a number or a [`Matrix2dOr3d`].
 #[derive(Clone, Debug, PartialEq)]
 pub enum NumberOrMatrix {
+    /// A number.
     Number(f64),
+
+    /// Either a [`DMat2`] or [`DMat3`].
     Matrix(Matrix2dOr3d),
 }
 
@@ -154,18 +157,23 @@ impl fmt::Display for CannotAddNumberAndMatrix {
 /// An error which can be returned by [`AstNode::evaluate`].
 #[derive(Clone, Debug, Error, PartialEq, Eq)]
 pub enum EvaluationError {
+    /// Cannot multiply two different dimensions of matrices.
     #[error("{0}")]
     CannotMultiplyDifferentDimensions(#[from] CannotMultiplyDifferentDimensions),
 
+    /// Cannot add two different dimensions of matrices.
     #[error("{0}")]
     CannotAddDifferentDimensions(#[from] CannotAddDifferentDimensions),
 
+    /// Cannot add a number and a matrix.
     #[error("{0}")]
     CannotAddNumberAndMatrix(#[from] CannotAddNumberAndMatrix),
 
+    /// Cannot raise a matrix to a non-integer number.
     #[error("Cannot raise a matrix to a non-integer number")]
     CannotRaiseMatrixToNonInteger,
 
+    /// An error occurred when getting a value from the matrix map.
     #[error("{0}")]
     MatrixMapError(#[from] MatrixMapError),
 }
@@ -187,7 +195,7 @@ impl<'n> AstNode<'n> {
                 power.evaluate(map)?,
             )?),
             Self::Number(number) => Ok(NumberOrMatrix::Number(number)),
-            Self::NamedMatrix(name) => Ok(NumberOrMatrix::Matrix(map.get(&name)?.into())),
+            Self::NamedMatrix(name) => Ok(NumberOrMatrix::Matrix(map.get(name)?.into())),
             Self::RotationMatrix { degrees } => Ok(NumberOrMatrix::Matrix(Matrix2dOr3d::TwoD(
                 DMat2::from_angle(degrees.to_radians()),
             ))),
