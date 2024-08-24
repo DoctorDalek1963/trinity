@@ -347,6 +347,30 @@ mod tests {
                 DVec2::new(-FRAC_1_SQRT_2, FRAC_1_SQRT_2)
             )))
         );
+
+        // [1 2; 3 2] ^ (1 + 2)
+        assert_relative_eq!(
+            AstNode::evaluate(
+                AstNode::Exponent {
+                    base: Box::new(AstNode::Anonymous2dMatrix(DMat2::from_cols(
+                        DVec2::new(1., 3.),
+                        DVec2::new(2., 2.)
+                    ))),
+                    power: Box::new(AstNode::Add {
+                        left: Box::new(AstNode::Number(1.)),
+                        right: Box::new(AstNode::Number(2.))
+                    })
+                },
+                &map2
+            )
+            .unwrap(),
+            NumberOrMatrix::Matrix(Matrix2dOr3d::TwoD(DMat2::from_cols(
+                DVec2::new(25., 39.),
+                DVec2::new(26., 38.)
+            )))
+        );
+
+        // TODO: Test using named matrices from the map
     }
 
     #[test]
@@ -412,5 +436,30 @@ mod tests {
                 CannotAddDifferentDimensions
             ))
         );
+
+        // [1 0; 0 1] ^ 1.5
+        assert_eq!(
+            AstNode::evaluate(
+                AstNode::Exponent {
+                    base: Box::new(AstNode::Anonymous2dMatrix(DMat2::IDENTITY)),
+                    power: Box::new(AstNode::Number(1.5))
+                },
+                &map2
+            ),
+            Err(EvaluationError::CannotRaiseMatrixToNonInteger)
+        );
+    }
+
+    #[test]
+    #[should_panic = "Anything raised to the power of a matrix is a fundamentally invalid AST"]
+    fn ast_node_evaluation_raise_to_matrix() {
+        AstNode::evaluate(
+            AstNode::Exponent {
+                base: Box::new(AstNode::Number(2.3)),
+                power: Box::new(AstNode::Anonymous2dMatrix(DMat2::IDENTITY)),
+            },
+            &MatrixMap2::new(),
+        )
+        .ok();
     }
 }

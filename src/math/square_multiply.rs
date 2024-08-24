@@ -108,6 +108,14 @@ mod tests {
             epsilon = 0.000000000001
         );
 
+        // Floating point error accumulates really quickly with high powers like this, so epsilon
+        // needs to be much more lenient.
+        assert_relative_eq!(
+            integer_power(n, 15),
+            (1..15).fold(n, |acc, _| acc * n),
+            epsilon = 0.001
+        );
+
         assert_eq!(integer_power(m, 1), m);
         assert_eq!(integer_power(n, 0), DMat3::IDENTITY);
     }
