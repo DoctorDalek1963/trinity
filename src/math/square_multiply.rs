@@ -29,6 +29,9 @@ where
     num
 }
 
+/// When you raise a number to the power of zero, you get one. When you raise a matrix to the power
+/// of zero, you get the identity matrix in that dimension. This trait exists to abstract over the
+/// type and allow [`integer_power`] to raise anything to the power of zero.
 pub trait PowerZero {
     /// What is any value of this type raised to the power of 0?
     const POWER_ZERO: Self;
@@ -50,6 +53,7 @@ impl PowerZero for glam::DMat3 {
     const POWER_ZERO: Self = glam::DMat3::IDENTITY;
 }
 
+/// Impl [`PowerZero`] for all builtin signed and unsigned integer types.
 macro_rules! impl_power_zero_int {
     ($($t:ty),*) => {
         $(impl PowerZero for $t {
