@@ -15,14 +15,51 @@ use thiserror::Error;
 /// A node in the tree. Also represents the tree itself, since the root is just a node.
 #[derive(Clone, Debug, PartialEq)]
 pub enum AstNode<'n> {
-    Multiply { left: Box<Self>, right: Box<Self> },
-    Add { left: Box<Self>, right: Box<Self> },
-    Exponent { base: Box<Self>, power: Box<Self> },
-    Number { number: f64 },
-    NamedMatrix { name: MatrixName<'n> },
-    RotationMatrix { degrees: f64 },
-    Anonymous2dMatrix { matrix: DMat2 },
-    Anonymous3dMatrix { matrix: DMat3 },
+    /// Multiply two things together.
+    Multiply {
+        /// The value on the left of the multiplication.
+        left: Box<Self>,
+        /// The value on the right of the multiplication.
+        right: Box<Self>,
+    },
+
+    /// Add two things together.
+    Add {
+        /// The value on the left of the addition.
+        left: Box<Self>,
+        /// The value on the right of the addition.
+        right: Box<Self>,
+    },
+
+    /// Raise one thing to the power of another.
+    Exponent {
+        /// The base part of the exponentiation. The `b` in `b^p`.
+        base: Box<Self>,
+
+        /// The power part of the exponentiation. The `p` in `b^p`.
+        ///
+        /// The power must always evaluate to a number, and if the base is a matrix, then the
+        /// power must be an integer.
+        power: Box<Self>,
+    },
+
+    /// A real number.
+    Number(f64),
+
+    /// A named matrix. See [`MatrixName`].
+    NamedMatrix(MatrixName<'n>),
+
+    /// A rotation matrix, written in the expression like `rot(45)` or `rot(90)`.
+    RotationMatrix {
+        /// The number of degrees of rotation.
+        degrees: f64,
+    },
+
+    /// An unnamed 2D matrix, written inline in the expression like `[1 2; 3 4]`.
+    Anonymous2dMatrix(DMat2),
+
+    /// An unnamed 3D matrix, written inline in the expression like `[1 2 3; 4 5 6; 7 8 9]`.
+    Anonymous3dMatrix(DMat3),
 }
 
 /// Either a number or a [`Matrix2dOr3d`].
@@ -96,8 +133,10 @@ impl NumberOrMatrix {
                     Err(EvaluationError::CannotRaiseMatrixToNonInteger)
                 }
             }
-            (Self::Number(_), Self::Matrix(_)) => Err(EvaluationError::CannotRaiseNumberToMatrix),
-            (Self::Matrix(_), Self::Matrix(_)) => Err(EvaluationError::CannotRaiseMatrixToMatrix),
+            (_, Self::Matrix(_)) => panic!(concat!(
+                "Anything raised to the power of a matrix is a fundamentally invalid AST. ",
+                "The parser should error before this point."
+            )),
         }
     }
 }
@@ -124,12 +163,6 @@ pub enum EvaluationError {
     #[error("{0}")]
     CannotAddNumberAndMatrix(#[from] CannotAddNumberAndMatrix),
 
-    #[error("Cannot raise a number to the power of a matrix")]
-    CannotRaiseNumberToMatrix,
-
-    #[error("Cannot raise a matrix to the power of a matrix")]
-    CannotRaiseMatrixToMatrix,
-
     #[error("Cannot raise a matrix to a non-integer number")]
     CannotRaiseMatrixToNonInteger,
 
@@ -153,15 +186,15 @@ impl<'n> AstNode<'n> {
                 base.evaluate(map)?,
                 power.evaluate(map)?,
             )?),
-            Self::Number { number } => Ok(NumberOrMatrix::Number(number)),
-            Self::NamedMatrix { name } => Ok(NumberOrMatrix::Matrix(map.get(&name)?.into())),
+            Self::Number(number) => Ok(NumberOrMatrix::Number(number)),
+            Self::NamedMatrix(name) => Ok(NumberOrMatrix::Matrix(map.get(&name)?.into())),
             Self::RotationMatrix { degrees } => Ok(NumberOrMatrix::Matrix(Matrix2dOr3d::TwoD(
                 DMat2::from_angle(degrees.to_radians()),
             ))),
-            Self::Anonymous2dMatrix { matrix } => {
+            Self::Anonymous2dMatrix(matrix) => {
                 Ok(NumberOrMatrix::Matrix(Matrix2dOr3d::TwoD(matrix)))
             }
-            Self::Anonymous3dMatrix { matrix } => {
+            Self::Anonymous3dMatrix(matrix) => {
                 Ok(NumberOrMatrix::Matrix(Matrix2dOr3d::ThreeD(matrix)))
             }
         }
@@ -217,7 +250,7 @@ mod tests {
 
         // 10
         assert_relative_eq!(
-            AstNode::evaluate(AstNode::Number { number: 10. }, &map2).unwrap(),
+            AstNode::evaluate(AstNode::Number(10.), &map2).unwrap(),
             NumberOrMatrix::Number(10.)
         );
 
@@ -225,8 +258,8 @@ mod tests {
         assert_relative_eq!(
             AstNode::evaluate(
                 AstNode::Multiply {
-                    left: Box::new(AstNode::Number { number: 3.2 }),
-                    right: Box::new(AstNode::Number { number: 5. })
+                    left: Box::new(AstNode::Number(3.2)),
+                    right: Box::new(AstNode::Number(5.))
                 },
                 &map2
             )
@@ -238,8 +271,8 @@ mod tests {
         assert_relative_eq!(
             AstNode::evaluate(
                 AstNode::Add {
-                    left: Box::new(AstNode::Number { number: 1. }),
-                    right: Box::new(AstNode::Number { number: 2. })
+                    left: Box::new(AstNode::Number(1.)),
+                    right: Box::new(AstNode::Number(2.))
                 },
                 &map2
             )
@@ -251,10 +284,11 @@ mod tests {
         assert_relative_eq!(
             AstNode::evaluate(
                 AstNode::Multiply {
-                    left: Box::new(AstNode::Number { number: 3. }),
-                    right: Box::new(AstNode::Anonymous2dMatrix {
-                        matrix: DMat2::from_cols(DVec2::new(2., 1.5), DVec2::new(-2.2, 10.))
-                    })
+                    left: Box::new(AstNode::Number(3.)),
+                    right: Box::new(AstNode::Anonymous2dMatrix(DMat2::from_cols(
+                        DVec2::new(2., 1.5),
+                        DVec2::new(-2.2, 10.)
+                    )))
                 },
                 &map2
             )
@@ -269,25 +303,21 @@ mod tests {
         assert_relative_eq!(
             AstNode::evaluate(
                 AstNode::Multiply {
-                    left: Box::new(AstNode::Anonymous3dMatrix {
-                        matrix: DMat3::from_cols(
-                            DVec3::new(1., 2.5, 3.1),
-                            DVec3::new(-2.34, 0., 0.5),
-                            DVec3::new(2.3, -0.5, 9.2)
-                        )
-                    }),
+                    left: Box::new(AstNode::Anonymous3dMatrix(DMat3::from_cols(
+                        DVec3::new(1., 2.5, 3.1),
+                        DVec3::new(-2.34, 0., 0.5),
+                        DVec3::new(2.3, -0.5, 9.2)
+                    ))),
                     right: Box::new(AstNode::Multiply {
                         left: Box::new(AstNode::Add {
-                            left: Box::new(AstNode::Number { number: 1.2 }),
-                            right: Box::new(AstNode::Number { number: 2.3 })
+                            left: Box::new(AstNode::Number(1.2)),
+                            right: Box::new(AstNode::Number(2.3))
                         }),
-                        right: Box::new(AstNode::Anonymous3dMatrix {
-                            matrix: DMat3::from_cols(
-                                DVec3::new(2.3, 1.4, -3.2),
-                                DVec3::new(-1.2, 3., -6.3),
-                                DVec3::new(-3., 1., 2.22)
-                            )
-                        })
+                        right: Box::new(AstNode::Anonymous3dMatrix(DMat3::from_cols(
+                            DVec3::new(2.3, 1.4, -3.2),
+                            DVec3::new(-1.2, 3., -6.3),
+                            DVec3::new(-3., 1., 2.22)
+                        )))
                     })
                 },
                 &map3
@@ -320,10 +350,11 @@ mod tests {
         assert_eq!(
             AstNode::evaluate(
                 AstNode::Add {
-                    left: Box::new(AstNode::Number { number: 3. }),
-                    right: Box::new(AstNode::Anonymous2dMatrix {
-                        matrix: DMat2::from_cols(DVec2::new(4., -1.5), DVec2::new(-1., 3.))
-                    })
+                    left: Box::new(AstNode::Number(3.)),
+                    right: Box::new(AstNode::Anonymous2dMatrix(DMat2::from_cols(
+                        DVec2::new(4., -1.5),
+                        DVec2::new(-1., 3.)
+                    )))
                 },
                 &map2
             ),
@@ -336,16 +367,15 @@ mod tests {
         assert_eq!(
             AstNode::evaluate(
                 AstNode::Multiply {
-                    left: Box::new(AstNode::Anonymous3dMatrix {
-                        matrix: DMat3::from_cols(
-                            DVec3::new(1., 2., 3.),
-                            DVec3::new(4., 5., 6.),
-                            DVec3::new(7., 8., 9.)
-                        )
-                    }),
-                    right: Box::new(AstNode::Anonymous2dMatrix {
-                        matrix: DMat2::from_cols(DVec2::new(4., -1.5), DVec2::new(-1., 3.))
-                    })
+                    left: Box::new(AstNode::Anonymous3dMatrix(DMat3::from_cols(
+                        DVec3::new(1., 2., 3.),
+                        DVec3::new(4., 5., 6.),
+                        DVec3::new(7., 8., 9.)
+                    ))),
+                    right: Box::new(AstNode::Anonymous2dMatrix(DMat2::from_cols(
+                        DVec2::new(4., -1.5),
+                        DVec2::new(-1., 3.)
+                    )))
                 },
                 &map2
             ),
@@ -358,16 +388,15 @@ mod tests {
         assert_eq!(
             AstNode::evaluate(
                 AstNode::Add {
-                    left: Box::new(AstNode::Anonymous3dMatrix {
-                        matrix: DMat3::from_cols(
-                            DVec3::new(1., 2., 3.),
-                            DVec3::new(4., 5., 6.),
-                            DVec3::new(7., 8., 9.)
-                        )
-                    }),
-                    right: Box::new(AstNode::Anonymous2dMatrix {
-                        matrix: DMat2::from_cols(DVec2::new(4., -1.5), DVec2::new(-1., 3.))
-                    })
+                    left: Box::new(AstNode::Anonymous3dMatrix(DMat3::from_cols(
+                        DVec3::new(1., 2., 3.),
+                        DVec3::new(4., 5., 6.),
+                        DVec3::new(7., 8., 9.)
+                    ))),
+                    right: Box::new(AstNode::Anonymous2dMatrix(DMat2::from_cols(
+                        DVec2::new(4., -1.5),
+                        DVec2::new(-1., 3.)
+                    )))
                 },
                 &map2
             ),
