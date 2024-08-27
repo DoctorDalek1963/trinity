@@ -1,0 +1,27 @@
+name: GitHub Pages
+
+on: push
+
+jobs:
+  github-pages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: nixbuild/nix-quick-install-action@v27
+
+      - uses: cachix/cachix-action@v14
+        with:
+          name: doctordalek1963
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
+      - name: Build the docs
+        run: nix build .#doc-with-deps --print-build-logs --keep-going
+
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v4
+        if: github.ref == 'refs/heads/main'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./result/share/doc
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
