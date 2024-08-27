@@ -207,6 +207,71 @@ impl<'n> AstNode<'n> {
             }
         }
     }
+
+    /// Convert this AST node into an expression string.
+    pub fn to_expression_string(&self) -> String {
+        self.internal_to_expression_string(true)
+    }
+
+    /// The internal implementation of [`AstNode::to_expression_string`]. The `top_level` parameter
+    /// is used to control parentheses.
+    fn internal_to_expression_string(&self, top_level: bool) -> String {
+        match self {
+            Self::Multiply { left, right } => {
+                let left = left.internal_to_expression_string(false);
+                let right = right.internal_to_expression_string(false);
+                let string = format!("{left} * {right}");
+                if !top_level {
+                    format!("({string})")
+                } else {
+                    string
+                }
+            }
+            Self::Add { left, right } => {
+                let left = left.internal_to_expression_string(false);
+                let right = right.internal_to_expression_string(false);
+                let string = format!("{left} + {right}");
+                if !top_level {
+                    format!("({string})")
+                } else {
+                    string
+                }
+            }
+            Self::Exponent { base, power } => {
+                let base = base.internal_to_expression_string(false);
+                // The braces also act as parens, so we can treat the power as if it were top-level
+                let power = power.internal_to_expression_string(true);
+                let string = format!("{base} ^ {{{power}}}");
+                if !top_level {
+                    format!("({string})")
+                } else {
+                    string
+                }
+            }
+            Self::Number(number) => number.to_string(),
+            Self::NamedMatrix(MatrixName { name }) => name.to_string(),
+            Self::RotationMatrix { degrees } => format!("rot({degrees})"),
+            Self::Anonymous2dMatrix(DMat2 { x_axis, y_axis }) => {
+                format!("[{} {}; {} {}]", x_axis.x, y_axis.x, x_axis.y, y_axis.y)
+            }
+            Self::Anonymous3dMatrix(DMat3 {
+                x_axis,
+                y_axis,
+                z_axis,
+            }) => format!(
+                "[{} {} {}; {} {} {}; {} {} {}]",
+                x_axis.x,
+                y_axis.x,
+                z_axis.x,
+                x_axis.y,
+                y_axis.y,
+                z_axis.y,
+                x_axis.z,
+                y_axis.z,
+                z_axis.z,
+            ),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -447,6 +512,42 @@ mod tests {
                 &map2
             ),
             Err(EvaluationError::CannotRaiseMatrixToNonInteger)
+        );
+    }
+
+    #[test]
+    fn ast_node_to_expression_string() {
+        assert_eq!(
+            AstNode::to_expression_string(&AstNode::Multiply {
+                left: Box::new(AstNode::NamedMatrix(MatrixName::new("M"))),
+                right: Box::new(AstNode::Add {
+                    left: Box::new(AstNode::Number(1.)),
+                    right: Box::new(AstNode::Number(2.))
+                })
+            }),
+            "M * (1 + 2)"
+        );
+
+        assert_eq!(
+            AstNode::to_expression_string(&AstNode::Exponent {
+                base: Box::new(AstNode::NamedMatrix(MatrixName::new("M"))),
+                power: Box::new(AstNode::Number(2.))
+            }),
+            "M ^ {2}"
+        );
+
+        assert_eq!(
+            AstNode::to_expression_string(&AstNode::Exponent {
+                base: Box::new(AstNode::RotationMatrix { degrees: 45. }),
+                power: Box::new(AstNode::Add {
+                    left: Box::new(AstNode::Multiply {
+                        left: Box::new(AstNode::Number(0.)),
+                        right: Box::new(AstNode::NamedMatrix(MatrixName::new("X")))
+                    }),
+                    right: Box::new(AstNode::Number(1.))
+                })
+            }),
+            "rot(45) ^ {(0 * X) + 1}"
         );
     }
 
