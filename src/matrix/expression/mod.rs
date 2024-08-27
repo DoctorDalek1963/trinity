@@ -4,3 +4,4 @@
 //! [`AstNode`](self::ast::AstNode)), and then [`evaulate`](self::ast::AstNode::evaluate) it.
 
 pub mod ast;
+pub mod tokenise;
