@@ -96,11 +96,18 @@
             inherit src;
           };
 
+          doctests = craneLib.cargoTest (commonArgs
+            // {
+              inherit cargoArtifacts;
+              cargoTestArgs = "--doc";
+            });
+
           nextest = craneLib.cargoNextest (commonArgs
             // {
               inherit cargoArtifacts;
               partitions = 1;
               partitionType = "count";
+              cargoNextestExtraArgs = "--no-fail-fast";
             });
         };
 
