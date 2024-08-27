@@ -127,6 +127,13 @@
               cargoDocExtraArgs = "--no-deps --document-private-items";
               RUSTDOCFLAGS = "--deny warnings";
             });
+
+          doc-with-deps = craneLib.cargoDoc (commonArgs
+            // {
+              inherit cargoArtifacts;
+              cargoDocExtraArgs = "--document-private-items";
+              RUSTDOCFLAGS = "--deny warnings";
+            });
         };
       };
     };
