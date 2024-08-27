@@ -208,8 +208,9 @@ mod tests {
         }
     }
 
+    // Should panic iff we're in a debug build
     #[test]
-    #[should_panic = "MatrixName must be valid"]
+    #[cfg_attr(debug_assertions, should_panic = "MatrixName must be valid")]
     fn matrix_name_new_panics() {
         MatrixName::new("m");
     }
