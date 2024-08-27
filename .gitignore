@@ -5,3 +5,5 @@
 
 # Rust
 /target
+mutants.out/
+mutants.out.old/

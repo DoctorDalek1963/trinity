@@ -54,6 +54,7 @@
             (rustToolchain.override {
               extensions = ["rust-analyzer" "rust-src" "rust-std"];
             })
+            pkgs.cargo-mutants
             pkgs.cargo-nextest
           ];
           shellHook = ''
