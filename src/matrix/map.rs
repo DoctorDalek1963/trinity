@@ -41,15 +41,21 @@ pub trait MatrixMap {
     fn get(&self, name: MatrixName<'_>) -> Result<Self::MatrixType, MatrixMapError>;
 }
 
-/// A [`MatrixMap`] for 2D matrices
+/// A [`MatrixMap`] for some generic type `T`.
 #[derive(Clone, Debug, PartialEq)]
-pub struct MatrixMap2 {
-    /// The [`HashMap`] of [`DMat2`] backing this implementation.
-    map: HashMap<String, DMat2>,
+pub struct MatrixMapHashMap<T> {
+    /// The [`HashMap`] backing this implementation.
+    map: HashMap<String, T>,
 }
 
-impl MatrixMap for MatrixMap2 {
-    type MatrixType = DMat2;
+/// A [`MatrixMap`] for 2D matrices.
+pub type MatrixMap2 = MatrixMapHashMap<DMat2>;
+
+/// A [`MatrixMap`] for 3D matrices.
+pub type MatrixMap3 = MatrixMapHashMap<DMat3>;
+
+impl<T: Into<Matrix2dOr3d> + Clone + Copy> MatrixMap for MatrixMapHashMap<T> {
+    type MatrixType = T;
 
     fn new() -> Self {
         Self {
@@ -59,53 +65,82 @@ impl MatrixMap for MatrixMap2 {
 
     fn set(
         &mut self,
-        MatrixName(name): MatrixName,
+        MatrixName { name }: MatrixName,
         value: Self::MatrixType,
     ) -> Result<(), MatrixMapError> {
-        self.map.insert(name.to_owned(), value);
-        Ok(())
+        if MatrixName::is_valid(name) {
+            self.map.insert(name.into(), value);
+            Ok(())
+        } else {
+            Err(MatrixMapError::InvalidName(name.to_owned()))
+        }
     }
 
-    fn get(&self, MatrixName(name): MatrixName) -> Result<Self::MatrixType, MatrixMapError> {
-        match self.map.get(name) {
-            Some(matrix) => Ok(*matrix),
-            None => Err(MatrixMapError::NameNotDefined(name.to_owned())),
+    fn get(&self, MatrixName { name }: MatrixName) -> Result<Self::MatrixType, MatrixMapError> {
+        if MatrixName::is_valid(name) {
+            match self.map.get(name) {
+                Some(matrix) => Ok(*matrix),
+                None => Err(MatrixMapError::NameNotDefined(name.to_owned())),
+            }
+        } else {
+            Err(MatrixMapError::InvalidName(name.to_owned()))
         }
     }
 }
 
-// NOTE: The impl for 3D matrices is identical to the impl for 2D ones and should always remain
-// identical. I might pull this out into a derive macro if it becomes complex enough.
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-/// A [`MatrixMap`] for 3D matrices
-#[derive(Clone, Debug, PartialEq)]
-pub struct MatrixMap3 {
-    /// The [`HashMap`] of [`DMat3`] backing this implementation.
-    map: HashMap<String, DMat3>,
-}
+    #[test]
+    fn matrix_map_set_get() {
+        let mut map2 = MatrixMap2::new();
+        let mut map3 = MatrixMap3::new();
 
-impl MatrixMap for MatrixMap3 {
-    type MatrixType = DMat3;
+        let m1 = rand::random::<DMat2>();
+        let m2 = rand::random::<DMat2>();
+        let n1 = rand::random::<DMat3>();
+        let n2 = rand::random::<DMat3>();
 
-    fn new() -> Self {
-        Self {
-            map: HashMap::new(),
-        }
-    }
+        let m1name = MatrixName::new("M1");
+        let m2name = MatrixName::new("M2");
+        let n1name = MatrixName::new("N1");
+        let n2name = MatrixName::new("N2");
 
-    fn set(
-        &mut self,
-        MatrixName(name): MatrixName,
-        value: Self::MatrixType,
-    ) -> Result<(), MatrixMapError> {
-        self.map.insert(name.into(), value);
-        Ok(())
-    }
+        assert_eq!(map2.set(m1name, m1), Ok(()));
+        assert_eq!(map2.set(m2name, m2), Ok(()));
+        assert_eq!(map3.set(n1name, n1), Ok(()));
+        assert_eq!(map3.set(n2name, n2), Ok(()));
 
-    fn get(&self, MatrixName(name): MatrixName) -> Result<Self::MatrixType, MatrixMapError> {
-        match self.map.get(name) {
-            Some(matrix) => Ok(*matrix),
-            None => Err(MatrixMapError::NameNotDefined(name.to_owned())),
-        }
+        assert_eq!(
+            map2.set(MatrixName { name: "m" }, m1),
+            Err(MatrixMapError::InvalidName("m".to_string()))
+        );
+        assert_eq!(
+            map3.set(MatrixName { name: "x" }, n1),
+            Err(MatrixMapError::InvalidName("x".to_string()))
+        );
+
+        assert_eq!(map2.get(m1name), Ok(m1));
+        assert_eq!(map2.get(m2name), Ok(m2));
+        assert_eq!(map3.get(n1name), Ok(n1));
+        assert_eq!(map3.get(n2name), Ok(n2));
+
+        assert_eq!(
+            map2.get(MatrixName::new("X")),
+            Err(MatrixMapError::NameNotDefined("X".to_string()))
+        );
+        assert_eq!(
+            map2.get(MatrixName { name: "y" }),
+            Err(MatrixMapError::InvalidName("y".to_string()))
+        );
+        assert_eq!(
+            map3.get(MatrixName::new("X")),
+            Err(MatrixMapError::NameNotDefined("X".to_string()))
+        );
+        assert_eq!(
+            map3.get(MatrixName { name: "y" }),
+            Err(MatrixMapError::InvalidName("y".to_string()))
+        );
     }
 }

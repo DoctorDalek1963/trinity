@@ -1,11 +1,21 @@
 //! This module handles the internals of the matrices. Storing, handling, parsing, evaluating, etc.
 
 use glam::f64::{DMat2, DMat3};
+use lazy_static::lazy_static;
+use regex::Regex;
 use std::{fmt, ops::Mul};
 use thiserror::Error;
 
 pub mod expression;
 pub mod map;
+
+lazy_static! {
+    /// Matches a valid matrix name at the start of the string.
+    pub static ref LEADING_MATRIX_NAME_REGEX: Regex = Regex::new(r"^[A-Z][A-Za-z0-9_]*").unwrap();
+
+    /// Matches a valid matrix name which takes up the whole string.
+    pub static ref FULL_MATRIX_NAME_REGEX: Regex = Regex::new(r"^[A-Z][A-Za-z0-9_]*$").unwrap();
+}
 
 /// The name of a named matrix. Essentially a variable name.
 ///
@@ -13,7 +23,27 @@ pub mod map;
 /// underscores. `M`, `Matrix`, `X_2`, and `M3_Y5F` are all valid matrix names. But `m`, `matrix`,
 /// `X-2`, and `M5#Y` are all invalid.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct MatrixName<'n>(&'n str);
+pub struct MatrixName<'n> {
+    /// The name of the matrix. Should be pre-validated by [`MatrixName::new`].
+    name: &'n str,
+}
+
+impl<'n> MatrixName<'n> {
+    /// Create a new matrix name.
+    ///
+    /// In debug builds, this function will panic if the name is invalid (see [`Self::is_valid`]).
+    /// In non-debug builds, this function will never panic, since the only code paths that should
+    /// ever call [`MatrixName::new`] should only pass names that are already known to be valid.
+    pub fn new(name: &'n str) -> Self {
+        debug_assert!(Self::is_valid(name), "MatrixName must be valid");
+        Self { name }
+    }
+
+    /// Check if the matrix name is valid. See the [`MatrixName`] docs for valid names.
+    pub fn is_valid(name: &str) -> bool {
+        FULL_MATRIX_NAME_REGEX.is_match(name)
+    }
+}
 
 /// A 2D or 3D matrix.
 #[derive(Clone, Debug, PartialEq)]
@@ -141,5 +171,44 @@ mod tests {
                 _ => false,
             }
         }
+    }
+
+    #[test]
+    fn matrix_name_is_valid() {
+        let valid_names = [
+            "M",
+            "Mat",
+            "A2",
+            "X_Y3",
+            "Dave",
+            "N",
+            "T",
+            "SomeReallyLongMatrixNameButIts_Okay_Because_It_fits_all_the_rules",
+        ];
+        for name in valid_names {
+            assert!(MatrixName::is_valid(name), "'{name}' should be valid");
+        }
+
+        let invalid_names = [
+            "",
+            "m",
+            " M",
+            "x",
+            "my_matrix",
+            "::",
+            "Name with spaces",
+            "WhatAboutPunctuation?",
+            "It's",
+            "X:C",
+        ];
+        for name in invalid_names {
+            assert!(!MatrixName::is_valid(name), "'{name}' should be invalid");
+        }
+    }
+
+    #[test]
+    #[should_panic = "MatrixName must be valid"]
+    fn matrix_name_new_panics() {
+        MatrixName::new("m");
     }
 }

@@ -1,19 +1,11 @@
 //! This module handles tokenising a matrix expression string into a list of [`Token`]s.
 
-use crate::matrix::MatrixName;
-use lazy_static::lazy_static;
+use crate::matrix::{MatrixName, LEADING_MATRIX_NAME_REGEX};
 use nom::{
     branch::alt, bytes::complete::tag, character::complete::multispace1, multi::many1,
     number::complete::float, IResult, Parser,
 };
 use nom_regex::str::re_find;
-use regex::Regex;
-
-lazy_static! {
-    /// The regular expression used to validate matrix names during tokenisation.
-    /// See [`MatrixName`].
-    pub static ref MATRIX_NAME_REGEX: Regex = Regex::new(r"^[A-Z][A-Za-z0-9_]*").unwrap();
-}
 
 /// A single token in the token list that results from tokenisation.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -123,10 +115,10 @@ pub fn tokenise_expression<'n>(expression: &'n str) -> Result<Vec<Token<'n>>, To
 
 /// Tokenise a single named matrix from the expression.
 fn tokenise_named_matrix(input: &str) -> IResult<&str, Token> {
-    re_find(MATRIX_NAME_REGEX.clone())
+    re_find(LEADING_MATRIX_NAME_REGEX.clone())
         .map(|name| {
             debug_assert!(!name.is_empty() && name.starts_with(|c: char| c.is_uppercase()));
-            Token::NamedMatrix(MatrixName(name))
+            Token::NamedMatrix(MatrixName::new(name))
         })
         .parse(input)
 }
@@ -164,24 +156,24 @@ mod tests {
         for name in valid_names {
             assert_eq!(
                 tokenise_named_matrix(name),
-                Ok(("", Token::NamedMatrix(MatrixName(name)))),
+                Ok(("", Token::NamedMatrix(MatrixName::new(name)))),
                 "'{name}' should be valid"
             );
         }
 
         assert_eq!(
             tokenise_named_matrix("M * 2"),
-            Ok((" * 2", Token::NamedMatrix(MatrixName("M"))))
+            Ok((" * 2", Token::NamedMatrix(MatrixName::new("M"))))
         );
 
         assert_eq!(
             tokenise_named_matrix("Z-2"),
-            Ok(("-2", Token::NamedMatrix(MatrixName("Z"))))
+            Ok(("-2", Token::NamedMatrix(MatrixName::new("Z"))))
         );
 
         assert_eq!(
             tokenise_named_matrix("X:C"),
-            Ok((":C", Token::NamedMatrix(MatrixName("X"))))
+            Ok((":C", Token::NamedMatrix(MatrixName::new("X"))))
         );
 
         let invalid_names = ["", "m", " M", "x", "my_matrix", "::"];
@@ -200,7 +192,7 @@ mod tests {
         assert_eq!(
             tokenise_expression("M^2 * [1 2; 3 -5]"),
             Ok(vec![
-                T::NamedMatrix(MatrixName("M")),
+                T::NamedMatrix(MatrixName::new("M")),
                 T::Caret,
                 T::Number(2.),
                 T::Star,
