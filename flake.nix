@@ -56,6 +56,7 @@
             })
             pkgs.cargo-mutants
             pkgs.cargo-nextest
+            pkgs.cargo-tarpaulin
           ];
           shellHook = ''
             ${config.pre-commit.installationScript}

@@ -1,0 +1,25 @@
+name: Coverage
+
+on: push
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: nixbuild/nix-quick-install-action@v27
+
+      - uses: cachix/cachix-action@v14
+        with:
+          name: doctordalek1963
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
+      - name: Generate code coverage
+        run: |
+          nix develop --command cargo tarpaulin --verbose --all-features --workspace --timeout 120 --out xml
+
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{secrets.CODECOV_TOKEN}}
+          fail_ci_if_error: true
