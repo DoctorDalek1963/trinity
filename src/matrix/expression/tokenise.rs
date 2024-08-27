@@ -152,7 +152,16 @@ mod tests {
 
     #[test]
     fn test_tokenise_named_matrix() {
-        let valid_names = ["M", "Mat", "A2", "X_Y3", "Dave", "N", "T"];
+        let valid_names = [
+            "M",
+            "Mat",
+            "A2",
+            "X_Y3",
+            "Dave",
+            "N",
+            "T",
+            "SomeReallyLongMatrixNameButIts_Okay_Because_It_fits_all_the_rules",
+        ];
         for name in valid_names {
             assert_eq!(
                 tokenise_named_matrix(name),
@@ -174,6 +183,23 @@ mod tests {
         assert_eq!(
             tokenise_named_matrix("X:C"),
             Ok((":C", Token::NamedMatrix(MatrixName::new("X"))))
+        );
+
+        assert_eq!(
+            tokenise_named_matrix("Name with spaces"),
+            Ok((" with spaces", Token::NamedMatrix(MatrixName::new("Name"))))
+        );
+
+        assert_eq!(
+            tokenise_named_matrix("WhatAboutPunctuation?"),
+            Ok((
+                "?",
+                Token::NamedMatrix(MatrixName::new("WhatAboutPunctuation"))
+            ))
+        );
+        assert_eq!(
+            tokenise_named_matrix("It's"),
+            Ok(("'s", Token::NamedMatrix(MatrixName::new("It"))))
         );
 
         let invalid_names = ["", "m", " M", "x", "my_matrix", "::"];
@@ -228,6 +254,40 @@ mod tests {
                 T::Minus,
                 T::Number(6.)
             ])
+        );
+
+        assert_eq!(
+            tokenise_expression("M ^ {-1}"),
+            Ok(vec![
+                T::NamedMatrix(MatrixName::new("M")),
+                T::Caret,
+                T::OpenBrace,
+                T::Minus,
+                T::Number(1.),
+                T::CloseBrace,
+            ])
+        );
+
+        assert_eq!(
+            tokenise_expression("M^-1+X"),
+            Ok(vec![
+                T::NamedMatrix(MatrixName::new("M")),
+                T::Caret,
+                T::Minus,
+                T::Number(1.),
+                T::Plus,
+                T::NamedMatrix(MatrixName::new("X")),
+            ])
+        );
+
+        assert_eq!(
+            tokenise_expression("@"),
+            Err(TokeniseError {
+                nom_error: ::nom::Err::Error(::nom::error::Error {
+                    input: "@",
+                    code: ::nom::error::ErrorKind::MultiSpace
+                })
+            })
         );
     }
 }

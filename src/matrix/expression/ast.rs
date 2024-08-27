@@ -102,7 +102,7 @@ impl NumberOrMatrix {
                     0.000000001,
                     <f64 as RelativeEq>::default_max_relative(),
                 ) {
-                    let needs_invert = power < -0.0000000000001;
+                    let needs_invert = power.round() < 0.;
                     let power = power.round().abs() as u16;
 
                     let result = integer_power(base, power);
@@ -122,7 +122,7 @@ impl NumberOrMatrix {
                     0.000000001,
                     <f64 as RelativeEq>::default_max_relative(),
                 ) {
-                    let needs_invert = power < -0.0000000000001;
+                    let needs_invert = power.round() < 0.;
                     let power = power.round().abs() as u16;
 
                     let result = integer_power(base, power);
@@ -148,6 +148,7 @@ impl NumberOrMatrix {
 #[derive(Clone, Copy, Debug, Error, PartialEq, Eq)]
 pub struct CannotAddNumberAndMatrix;
 
+#[mutants::skip]
 impl fmt::Display for CannotAddNumberAndMatrix {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Cannot add number and matrix")
@@ -318,8 +319,8 @@ mod tests {
 
     #[test]
     fn ast_node_evaluation_success() {
-        let map2 = MatrixMap2::new();
-        let map3 = MatrixMap3::new();
+        let mut map2 = MatrixMap2::new();
+        let mut map3 = MatrixMap3::new();
 
         // 10
         assert_relative_eq!(
@@ -435,13 +436,168 @@ mod tests {
             )))
         );
 
-        // TODO: Test using named matrices from the map
+        // [1 2; 3 4] ^ -1
+        assert_relative_eq!(
+            AstNode::evaluate(
+                AstNode::Exponent {
+                    base: Box::new(AstNode::Anonymous2dMatrix(DMat2::from_cols(
+                        DVec2::new(1., 3.),
+                        DVec2::new(2., 4.)
+                    ))),
+                    power: Box::new(AstNode::Number(-1.))
+                },
+                &map2
+            )
+            .unwrap(),
+            NumberOrMatrix::Matrix(Matrix2dOr3d::TwoD(DMat2::from_cols(
+                DVec2::new(-2., 1.5),
+                DVec2::new(1., -0.5)
+            )))
+        );
+
+        // [1 2 3; 4 5 6; 1 2 4] ^ -1
+        assert_relative_eq!(
+            AstNode::evaluate(
+                AstNode::Exponent {
+                    base: Box::new(AstNode::Anonymous3dMatrix(DMat3::from_cols(
+                        DVec3::new(1., 4., 1.),
+                        DVec3::new(2., 5., 2.),
+                        DVec3::new(3., 6., 4.),
+                    ))),
+                    power: Box::new(AstNode::Number(-1.))
+                },
+                &map3
+            )
+            .unwrap(),
+            NumberOrMatrix::Matrix(Matrix2dOr3d::ThreeD(DMat3::from_cols(
+                DVec3::new(-(2. + 2. / 3.), 3. + 1. / 3., -1.),
+                DVec3::new(2. / 3., -1. / 3., 0.),
+                DVec3::new(1., -2., 1.),
+            )))
+        );
+
+        map2.set(
+            MatrixName::new("M"),
+            DMat2::from_cols(DVec2::new(1., 3.), DVec2::new(2., 4.)),
+        )
+        .expect("Should be able to set 2D matrix M");
+
+        map3.set(
+            MatrixName::new("X"),
+            DMat3::from_cols(
+                DVec3::new(1., 4., 1.),
+                DVec3::new(2., 5., 2.),
+                DVec3::new(3., 6., 4.),
+            ),
+        )
+        .expect("Should be able to set 3D matrix X");
+
+        // M * 3
+        assert_relative_eq!(
+            AstNode::evaluate(
+                AstNode::Multiply {
+                    left: Box::new(AstNode::NamedMatrix(MatrixName::new("M"))),
+                    right: Box::new(AstNode::Number(3.))
+                },
+                &map2
+            )
+            .unwrap(),
+            NumberOrMatrix::Matrix(Matrix2dOr3d::TwoD(DMat2::from_cols(
+                DVec2::new(3., 9.),
+                DVec2::new(6., 12.)
+            )))
+        );
+
+        // X ^ (2 ^ {1 + 1})
+        assert_relative_eq!(
+            AstNode::evaluate(
+                AstNode::Exponent {
+                    base: Box::new(AstNode::NamedMatrix(MatrixName::new("X"))),
+                    power: Box::new(AstNode::Exponent {
+                        base: Box::new(AstNode::Number(2.)),
+                        power: Box::new(AstNode::Add {
+                            left: Box::new(AstNode::Number(1.)),
+                            right: Box::new(AstNode::Number(1.))
+                        })
+                    })
+                },
+                &map3
+            )
+            .unwrap(),
+            NumberOrMatrix::Matrix(Matrix2dOr3d::ThreeD(DMat3::from_cols(
+                DVec3::new(1035., 2568., 1159.),
+                DVec3::new(1566., 3885., 1754.),
+                DVec3::new(2349., 5826., 2632.),
+            )))
+        );
+
+        // X * (X + X)
+        assert_relative_eq!(
+            AstNode::evaluate(
+                AstNode::Multiply {
+                    left: Box::new(AstNode::NamedMatrix(MatrixName::new("X"))),
+                    right: Box::new(AstNode::Add {
+                        left: Box::new(AstNode::NamedMatrix(MatrixName::new("X"))),
+                        right: Box::new(AstNode::NamedMatrix(MatrixName::new("X")))
+                    })
+                },
+                &map3
+            )
+            .unwrap(),
+            NumberOrMatrix::Matrix(Matrix2dOr3d::ThreeD(DMat3::from_cols(
+                DVec3::new(24., 60., 26.),
+                DVec3::new(36., 90., 40.),
+                DVec3::new(54., 132., 62.),
+            )))
+        );
+
+        // X * (1 + 2)
+        assert_relative_eq!(
+            AstNode::evaluate(
+                AstNode::Multiply {
+                    left: Box::new(AstNode::NamedMatrix(MatrixName::new("X"))),
+                    right: Box::new(AstNode::Add {
+                        left: Box::new(AstNode::Number(1.)),
+                        right: Box::new(AstNode::Number(2.))
+                    })
+                },
+                &map3
+            )
+            .unwrap(),
+            NumberOrMatrix::Matrix(Matrix2dOr3d::ThreeD(DMat3::from_cols(
+                DVec3::new(3., 12., 3.),
+                DVec3::new(6., 15., 6.),
+                DVec3::new(9., 18., 12.),
+            )))
+        );
+
+        // M * [1 0; 0 1] + [0 2; 3 0]
+        assert_relative_eq!(
+            AstNode::evaluate(
+                AstNode::Add {
+                    left: Box::new(AstNode::Multiply {
+                        left: Box::new(AstNode::NamedMatrix(MatrixName::new("M"))),
+                        right: Box::new(AstNode::Anonymous2dMatrix(DMat2::IDENTITY))
+                    }),
+                    right: Box::new(AstNode::Anonymous2dMatrix(DMat2::from_cols(
+                        DVec2::new(0., 3.),
+                        DVec2::new(2., 0.)
+                    )))
+                },
+                &map2
+            )
+            .unwrap(),
+            NumberOrMatrix::Matrix(Matrix2dOr3d::TwoD(DMat2::from_cols(
+                DVec2::new(1., 6.),
+                DVec2::new(4., 4.),
+            )))
+        );
     }
 
     #[test]
     fn ast_node_evaluation_failure() {
         let map2 = MatrixMap2::new();
-        // let map3 = MatrixMap3::new();
+        let map3 = MatrixMap3::new();
 
         // 3 + [4 -1; -1.5 3]
         assert_eq!(
@@ -513,6 +669,18 @@ mod tests {
             ),
             Err(EvaluationError::CannotRaiseMatrixToNonInteger)
         );
+
+        // [1 0 0; 0 1 0; 0 0 1] ^ -3.7
+        assert_eq!(
+            AstNode::evaluate(
+                AstNode::Exponent {
+                    base: Box::new(AstNode::Anonymous3dMatrix(DMat3::IDENTITY)),
+                    power: Box::new(AstNode::Number(-3.7))
+                },
+                &map3
+            ),
+            Err(EvaluationError::CannotRaiseMatrixToNonInteger)
+        );
     }
 
     #[test]
@@ -548,6 +716,17 @@ mod tests {
                 })
             }),
             "rot(45) ^ {(0 * X) + 1}"
+        );
+
+        assert_eq!(
+            AstNode::to_expression_string(&AstNode::Multiply {
+                left: Box::new(AstNode::Exponent {
+                    base: Box::new(AstNode::Anonymous2dMatrix(DMat2::IDENTITY)),
+                    power: Box::new(AstNode::Number(-1.))
+                }),
+                right: Box::new(AstNode::Anonymous3dMatrix(DMat3::IDENTITY))
+            }),
+            "([1 0; 0 1] ^ {-1}) * [1 0 0; 0 1 0; 0 0 1]"
         );
     }
 

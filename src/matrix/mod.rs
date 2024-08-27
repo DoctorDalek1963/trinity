@@ -93,6 +93,7 @@ impl Mul<f64> for Matrix2dOr3d {
 #[derive(Clone, Copy, Debug, Error, PartialEq, Eq)]
 pub struct CannotMultiplyDifferentDimensions;
 
+#[mutants::skip]
 impl fmt::Display for CannotMultiplyDifferentDimensions {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Cannot multiply two matrices of different dimensions")
@@ -103,6 +104,7 @@ impl fmt::Display for CannotMultiplyDifferentDimensions {
 #[derive(Clone, Copy, Debug, Error, PartialEq, Eq)]
 pub struct CannotAddDifferentDimensions;
 
+#[mutants::skip]
 impl fmt::Display for CannotAddDifferentDimensions {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Cannot add two matrices of different dimensions")
