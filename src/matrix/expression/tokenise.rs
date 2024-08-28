@@ -291,7 +291,7 @@ mod tests {
 
         assert_eq!(
             tokenise_expression("@"),
-            Err(TokeniseError {
+            Err(TokeniseError::NomError {
                 nom_error: ::nom::Err::Error(::nom::error::Error {
                     input: "@",
                     code: ::nom::error::ErrorKind::MultiSpace
