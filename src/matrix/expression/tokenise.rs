@@ -17,6 +17,9 @@ pub enum Token<'n> {
     /// A numeric literal.
     Number(f64),
 
+    /// The rotation command `rot`.
+    Rot,
+
     /// The `+` symbol.
     Plus,
 
@@ -109,6 +112,7 @@ impl<'n> From<NomError<'n>> for TokeniseError<'n> {
 pub fn tokenise_expression<'n>(expression: &'n str) -> Result<Vec<Token<'n>>, TokeniseError<'n>> {
     let (input, opt_tokens) = many1(alt((
         tokenise_named_matrix.map(Some),
+        tokenise_rot.map(Some),
         tokenise_punctuation.map(Some),
         tokenise_number.map(Some),
         multispace1.map(|_| None),
@@ -134,6 +138,11 @@ fn tokenise_named_matrix(input: &str) -> IResult<&str, Token> {
 /// Tokenise a single number from the expression.
 fn tokenise_number(input: &str) -> IResult<&str, Token> {
     float.map(|num| Token::Number(num as f64)).parse(input)
+}
+
+/// Tokenise a rotation command from the expression.
+fn tokenise_rot(input: &str) -> IResult<&str, Token> {
+    tag("rot").map(|_| Token::Rot).parse(input)
 }
 
 /// Tokenise a piece of punctuation from the expression.
@@ -220,7 +229,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tokenise_expression() {
+    fn test_tokenise_expression_success() {
         use super::Token as T;
 
         assert_eq!(
@@ -288,6 +297,29 @@ mod tests {
             ])
         );
 
+        assert_eq!(
+            tokenise_expression("rot(45) * ((1 + 2) * MyMatrix)"),
+            Ok(vec![
+                T::Rot,
+                T::OpenParen,
+                T::Number(45.),
+                T::CloseParen,
+                T::Star,
+                T::OpenParen,
+                T::OpenParen,
+                T::Number(1.),
+                T::Plus,
+                T::Number(2.),
+                T::CloseParen,
+                T::Star,
+                T::NamedMatrix(MatrixName::new("MyMatrix")),
+                T::CloseParen,
+            ])
+        );
+    }
+
+    #[test]
+    fn test_tokenise_expression_failure() {
         assert_eq!(
             tokenise_expression("@"),
             Err(TokeniseError::NomError {
