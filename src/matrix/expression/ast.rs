@@ -341,22 +341,12 @@ impl<'n> AstNode<'n> {
             Self::Anonymous2dMatrix(DMat2 { x_axis, y_axis }) => {
                 format!("[{} {}; {} {}]", x_axis.x, y_axis.x, x_axis.y, y_axis.y)
             }
-            Self::Anonymous3dMatrix(DMat3 {
-                x_axis,
-                y_axis,
-                z_axis,
-            }) => format!(
-                "[{} {} {}; {} {} {}; {} {} {}]",
-                x_axis.x,
-                y_axis.x,
-                z_axis.x,
-                x_axis.y,
-                y_axis.y,
-                z_axis.y,
-                x_axis.z,
-                y_axis.z,
-                z_axis.z,
-            ),
+
+            // This is utterly bizarre, but cargo tarpaulin complains about this if it's formatted
+            // nicely (ie. across multiple lines). Either we have this one ugly line here, or code
+            // coverage takes a needless hit.
+            #[rustfmt::skip]
+            Self::Anonymous3dMatrix(DMat3 { x_axis, y_axis, z_axis }) => format!("[{} {} {}; {} {} {}; {} {} {}]", x_axis.x, y_axis.x, z_axis.x, x_axis.y, y_axis.y, z_axis.y, x_axis.z, y_axis.z, z_axis.z),
         }
     }
 }
@@ -975,6 +965,15 @@ mod tests {
                 right: Box::new(AstNode::Anonymous3dMatrix(DMat3::IDENTITY))
             }),
             "([1 0; 0 1] ^ {-1}) * [1 0 0; 0 1 0; 0 0 1]"
+        );
+
+        assert_eq!(
+            AstNode::to_expression_string(&AstNode::Anonymous3dMatrix(DMat3::from_cols(
+                DVec3::new(1., 5., -3.),
+                DVec3::new(2., 3., 4.),
+                DVec3::new(3., 1., 2.),
+            ))),
+            "[1 2 3; 5 3 1; -3 4 2]"
         );
 
         assert_eq!(
