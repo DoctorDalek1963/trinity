@@ -67,10 +67,9 @@ pub enum TokeniseError<'n> {
         nom_error: NomError<'n>,
     },
 
-    // TODO: Test the fuck out of these error types.
     /// Some of the input was left unparsed.
-    #[error("Unparsed input after tokenising expression: '{0}'")]
-    UnparsedInput(&'n str),
+    #[error("Unconsumed input after tokenising expression: '{0}'")]
+    UnconsumedInput(&'n str),
 }
 
 impl<'n> From<NomError<'n>> for TokeniseError<'n> {
@@ -116,7 +115,7 @@ pub fn tokenise_expression<'n>(expression: &'n str) -> Result<Vec<Token<'n>>, To
     )))(expression)?;
 
     if !input.is_empty() {
-        return Err(TokeniseError::UnparsedInput(input));
+        return Err(TokeniseError::UnconsumedInput(input));
     }
 
     Ok(opt_tokens.into_iter().flatten().collect())
@@ -294,6 +293,28 @@ mod tests {
             Err(TokeniseError::NomError {
                 nom_error: ::nom::Err::Error(::nom::error::Error {
                     input: "@",
+                    code: ::nom::error::ErrorKind::MultiSpace
+                })
+            })
+        );
+
+        assert_eq!(
+            tokenise_expression(" []@"),
+            Err(TokeniseError::UnconsumedInput("@"))
+        );
+
+        assert_eq!(
+            tokenise_expression(std::str::from_utf8(&[10, 5, 91]).unwrap()),
+            Err(TokeniseError::UnconsumedInput(
+                std::str::from_utf8(&[5, 91]).unwrap()
+            ))
+        );
+
+        assert_eq!(
+            tokenise_expression("word"),
+            Err(TokeniseError::NomError {
+                nom_error: ::nom::Err::Error(::nom::error::Error {
+                    input: "word",
                     code: ::nom::error::ErrorKind::MultiSpace
                 })
             })
