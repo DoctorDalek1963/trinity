@@ -1,0 +1,20 @@
+name: Fuzz testing
+
+on: push
+
+jobs:
+  fuzz-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: nixbuild/nix-quick-install-action@v27
+
+      - uses: cachix/cachix-action@v14
+        with:
+          name: doctordalek1963
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
+      - name: Run cargo fuzz
+        run: |
+          cd fuzz/fuzz_targets
+          nix develop --command fd -e rs -x cargo fuzz run {.} -- -runs=100000

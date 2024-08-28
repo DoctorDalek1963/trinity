@@ -53,15 +53,19 @@
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
       in rec {
         devShells.default = pkgs.mkShell {
-          nativeBuildInputs = [
-            (rustToolchainNightlyWith {
-              extensions = ["rust-analyzer" "rust-src" "rust-std"];
-            })
-            pkgs.cargo-fuzz
-            pkgs.cargo-mutants
-            pkgs.cargo-nextest
-            pkgs.cargo-tarpaulin
-          ];
+          nativeBuildInputs =
+            [
+              (rustToolchainNightlyWith {
+                extensions = ["rust-analyzer" "rust-src" "rust-std"];
+              })
+            ]
+            ++ (with pkgs; [
+              cargo-fuzz
+              cargo-mutants
+              cargo-nextest
+              cargo-tarpaulin
+              fd
+            ]);
           shellHook = ''
             ${config.pre-commit.installationScript}
             export RUST_BACKTRACE=1
