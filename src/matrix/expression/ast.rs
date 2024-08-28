@@ -2,14 +2,10 @@
 
 use crate::{
     math::integer_power,
-    matrix::{
-        map::prelude::*, CannotAddDifferentDimensions, CannotMultiplyDifferentDimensions,
-        Matrix2dOr3d, MatrixName,
-    },
+    matrix::{map::prelude::*, Matrix2dOr3d, MatrixName},
 };
 use approx::RelativeEq;
 use glam::f64::{DMat2, DMat3};
-use std::fmt;
 use thiserror::Error;
 
 /// The epsilon value to use for relative comparisons.
@@ -92,12 +88,15 @@ pub enum NumberOrMatrix {
 
 impl NumberOrMatrix {
     /// Try to multiply.
-    pub fn try_mul(self, rhs: Self) -> Result<Self, CannotMultiplyDifferentDimensions> {
+    pub fn try_mul(self, rhs: Self) -> Result<Self, EvaluationError> {
         Ok(match (self, rhs) {
             (Self::Number(a), Self::Number(b)) => Self::Number(a * b),
             (Self::Number(a), Self::Matrix(b)) => Self::Matrix(a * b),
             (Self::Matrix(a), Self::Number(b)) => Self::Matrix(a * b),
-            (Self::Matrix(a), Self::Matrix(b)) => Self::Matrix(Matrix2dOr3d::try_mul(a, b)?),
+            (Self::Matrix(a), Self::Matrix(b)) => Self::Matrix(
+                Matrix2dOr3d::try_mul(a, b)
+                    .map_err(|()| EvaluationError::CannotMultiplyDifferentDimensions)?,
+            ),
         })
     }
 
@@ -114,8 +113,11 @@ impl NumberOrMatrix {
     pub fn try_add(self, rhs: Self) -> Result<Self, EvaluationError> {
         Ok(match (self, rhs) {
             (Self::Number(a), Self::Number(b)) => Self::Number(a + b),
-            (Self::Matrix(a), Self::Matrix(b)) => Self::Matrix(Matrix2dOr3d::try_add(a, b)?),
-            _ => Err(CannotAddNumberAndMatrix)?,
+            (Self::Matrix(a), Self::Matrix(b)) => Self::Matrix(
+                Matrix2dOr3d::try_add(a, b)
+                    .map_err(|()| EvaluationError::CannotAddDifferentDimensions)?,
+            ),
+            _ => Err(EvaluationError::CannotAddNumberAndMatrix)?,
         })
     }
 
@@ -195,45 +197,31 @@ impl NumberOrMatrix {
     }
 }
 
-/// Cannot add number and matrix.
-#[derive(Clone, Copy, Debug, Error, PartialEq, Eq)]
-pub struct CannotAddNumberAndMatrix;
-
-#[mutants::skip]
-impl fmt::Display for CannotAddNumberAndMatrix {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Cannot add number and matrix")
-    }
-}
-
 /// An error which can be returned by [`AstNode::evaluate`].
+#[allow(
+    missing_docs,
+    reason = "All variants impl Display and most are obvious from the name"
+)]
 #[derive(Clone, Debug, Error, PartialEq, Eq)]
 pub enum EvaluationError {
-    /// Cannot multiply two different dimensions of matrices.
-    #[error("{0}")]
-    CannotMultiplyDifferentDimensions(#[from] CannotMultiplyDifferentDimensions),
+    #[error("Cannot multiply two matrices of different dimensions")]
+    CannotMultiplyDifferentDimensions,
 
-    /// Cannot add two different dimensions of matrices.
-    #[error("{0}")]
-    CannotAddDifferentDimensions(#[from] CannotAddDifferentDimensions),
+    #[error("Cannot add two matrices of different dimensions")]
+    CannotAddDifferentDimensions,
 
-    /// Cannot add a number and a matrix.
-    #[error("{0}")]
-    CannotAddNumberAndMatrix(#[from] CannotAddNumberAndMatrix),
+    #[error("Cannot add a number and a matrix")]
+    CannotAddNumberAndMatrix,
 
-    /// Cannot raise a matrix to a non-integer number.
     #[error("Cannot raise a matrix to a non-integer number")]
     CannotRaiseMatrixToNonInteger,
 
-    /// Cannot raise anything to the power of a matrix.
     #[error("Cannot raise anything to the power of a matrix")]
     CannotRaiseToMatrix,
 
-    /// Cannot divide by a matrix.
     #[error("Cannot divide by a matrix")]
     CannotDivideByMatrix,
 
-    /// Cannot invert a singular (determinant 0) matrix.
     #[error("Cannot invert a singular (determinant 0) matrix")]
     CannotInvertSingularMatrix,
 
@@ -775,9 +763,7 @@ mod tests {
                 },
                 &map2
             ),
-            Err(EvaluationError::CannotAddNumberAndMatrix(
-                CannotAddNumberAndMatrix
-            ))
+            Err(EvaluationError::CannotAddNumberAndMatrix)
         );
 
         // [1 4 7; 2 5 8; 3 6 9] * [4 -1; 1.5 3]
@@ -796,9 +782,7 @@ mod tests {
                 },
                 &map2
             ),
-            Err(EvaluationError::CannotMultiplyDifferentDimensions(
-                CannotMultiplyDifferentDimensions
-            ))
+            Err(EvaluationError::CannotMultiplyDifferentDimensions)
         );
 
         // [1 4 7; 2 5 8; 3 6 9] + [4 -1; 1.5 3]
@@ -817,9 +801,7 @@ mod tests {
                 },
                 &map2
             ),
-            Err(EvaluationError::CannotAddDifferentDimensions(
-                CannotAddDifferentDimensions
-            ))
+            Err(EvaluationError::CannotAddDifferentDimensions)
         );
 
         // [1 0; 0 1] ^ 1.5

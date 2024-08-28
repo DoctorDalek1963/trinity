@@ -125,48 +125,26 @@ impl Mul<f64> for Matrix2dOr3d {
     }
 }
 
-/// Cannot multiply two matrices of different dimensions.
-#[derive(Clone, Copy, Debug, Error, PartialEq, Eq)]
-pub struct CannotMultiplyDifferentDimensions;
-
-#[mutants::skip]
-impl fmt::Display for CannotMultiplyDifferentDimensions {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Cannot multiply two matrices of different dimensions")
-    }
-}
-
-/// Cannot add two matrices of different dimensions.
-#[derive(Clone, Copy, Debug, Error, PartialEq, Eq)]
-pub struct CannotAddDifferentDimensions;
-
-#[mutants::skip]
-impl fmt::Display for CannotAddDifferentDimensions {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Cannot add two matrices of different dimensions")
-    }
-}
-
 impl Matrix2dOr3d {
     /// Try to multiply two matrices together.
     ///
     /// This method will fail if the two matrices are of different dimensions.
-    pub fn try_mul(left: Self, right: Self) -> Result<Self, CannotMultiplyDifferentDimensions> {
+    pub fn try_mul(left: Self, right: Self) -> Result<Self, ()> {
         match (left, right) {
             (Self::TwoD(a), Self::TwoD(b)) => Ok(Self::TwoD(a * b)),
             (Self::ThreeD(a), Self::ThreeD(b)) => Ok(Self::ThreeD(a * b)),
-            _ => Err(CannotMultiplyDifferentDimensions),
+            _ => Err(()),
         }
     }
 
     /// Try to add two matrices together.
     ///
     /// This method will fail if the two matrices are of different dimensions.
-    pub fn try_add(left: Self, right: Self) -> Result<Self, CannotAddDifferentDimensions> {
+    pub fn try_add(left: Self, right: Self) -> Result<Self, ()> {
         match (left, right) {
             (Self::TwoD(a), Self::TwoD(b)) => Ok(Self::TwoD(a + b)),
             (Self::ThreeD(a), Self::ThreeD(b)) => Ok(Self::ThreeD(a + b)),
-            _ => Err(CannotAddDifferentDimensions),
+            _ => Err(()),
         }
     }
 }
