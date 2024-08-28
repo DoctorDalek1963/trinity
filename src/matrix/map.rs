@@ -102,10 +102,10 @@ mod tests {
         let n1 = rand::random::<DMat3>();
         let n2 = rand::random::<DMat3>();
 
-        let m1name = MatrixName::new("M1");
-        let m2name = MatrixName::new("M2");
-        let n1name = MatrixName::new("N1");
-        let n2name = MatrixName::new("N2");
+        let m1name = MatrixName::new("M_one");
+        let m2name = MatrixName::new("M_two");
+        let n1name = MatrixName::new("N_one");
+        let n2name = MatrixName::new("N_two");
 
         assert_eq!(map2.set(m1name, m1), Ok(()));
         assert_eq!(map2.set(m2name, m2), Ok(()));

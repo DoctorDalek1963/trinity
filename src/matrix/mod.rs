@@ -10,7 +10,7 @@ pub mod expression;
 pub mod map;
 
 /// The string used to build [`LEADING_MATRIX_NAME_REGEX`] and [`FULL_MATRIX_NAME_REGEX`].
-const REGEX_STRING: &str = r"^[A-Z][A-Za-z0-9_]*";
+const REGEX_STRING: &str = r"^[A-Z][a-z_]*";
 
 lazy_static! {
     /// Matches a valid matrix name at the start of the string.
@@ -22,9 +22,42 @@ lazy_static! {
 
 /// The name of a named matrix. Essentially a variable name.
 ///
-/// A matrix name must start with an uppercase letter, and can contain letters, numbers, and
-/// underscores. `M`, `Matrix`, `X_2`, and `M3_Y5F` are all valid matrix names. But `m`, `matrix`,
-/// `X-2`, and `M5#Y` are all invalid.
+/// A matrix name must start with an uppercase letter, and can contain lowercase letters and
+/// underscores.
+///
+/// ```
+/// # use trinity::matrix::MatrixName;
+/// let valid_names = [
+///     "M",
+///     "Mat",
+///     "A_",
+///     "X_y",
+///     "Dave",
+///     "N",
+///     "T",
+///     "Some_really_long_matrix_name_but_its_okay_because_it_fits_the_rules",
+/// ];
+/// for name in valid_names {
+///     assert!(MatrixName::is_valid(name), "'{name}' should be valid");
+/// }
+///
+/// let invalid_names = [
+///     "",
+///     "m",
+///     " M",
+///     "x",
+///     "my_matrix",
+///     "::",
+///     "Name with spaces",
+///     "PascalCase",
+///     "WhatAboutPunctuation?",
+///     "It's",
+///     "X:C",
+/// ];
+/// for name in invalid_names {
+///     assert!(!MatrixName::is_valid(name), "'{name}' should be invalid");
+/// }
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MatrixName<'n> {
     /// The name of the matrix. Should be pre-validated by [`MatrixName::new`].
@@ -175,39 +208,6 @@ mod tests {
                 (Self::ThreeD(a), Self::ThreeD(b)) => a.relative_eq(b, epsilon, max_relative),
                 _ => false,
             }
-        }
-    }
-
-    #[test]
-    fn matrix_name_is_valid() {
-        let valid_names = [
-            "M",
-            "Mat",
-            "A2",
-            "X_Y3",
-            "Dave",
-            "N",
-            "T",
-            "SomeReallyLongMatrixNameButIts_Okay_Because_It_fits_all_the_rules",
-        ];
-        for name in valid_names {
-            assert!(MatrixName::is_valid(name), "'{name}' should be valid");
-        }
-
-        let invalid_names = [
-            "",
-            "m",
-            " M",
-            "x",
-            "my_matrix",
-            "::",
-            "Name with spaces",
-            "WhatAboutPunctuation?",
-            "It's",
-            "X:C",
-        ];
-        for name in invalid_names {
-            assert!(!MatrixName::is_valid(name), "'{name}' should be invalid");
         }
     }
 

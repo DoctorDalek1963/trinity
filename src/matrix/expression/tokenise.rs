@@ -172,12 +172,13 @@ mod tests {
         let valid_names = [
             "M",
             "Mat",
-            "A2",
-            "X_Y3",
+            "A_",
+            "X_y",
             "Dave",
             "N",
             "T",
-            "SomeReallyLongMatrixNameButIts_Okay_Because_It_fits_all_the_rules",
+            "Some_really_long_matrix_name_but_its_okay_because_it_fits_the_rules",
+            "Abc",
         ];
         for name in valid_names {
             assert_eq!(
@@ -186,6 +187,11 @@ mod tests {
                 "'{name}' should be valid"
             );
         }
+
+        assert_eq!(
+            tokenise_named_matrix("ABC"),
+            Ok(("BC", Token::NamedMatrix(MatrixName::new("A"))))
+        );
 
         assert_eq!(
             tokenise_named_matrix("M * 2"),
@@ -210,10 +216,11 @@ mod tests {
         assert_eq!(
             tokenise_named_matrix("WhatAboutPunctuation?"),
             Ok((
-                "?",
-                Token::NamedMatrix(MatrixName::new("WhatAboutPunctuation"))
+                "AboutPunctuation?",
+                Token::NamedMatrix(MatrixName::new("What"))
             ))
         );
+
         assert_eq!(
             tokenise_named_matrix("It's"),
             Ok(("'s", Token::NamedMatrix(MatrixName::new("It"))))
@@ -298,7 +305,7 @@ mod tests {
         );
 
         assert_eq!(
-            tokenise_expression("rot(45) * ((1 + 2) * MyMatrix)"),
+            tokenise_expression("rot(45) * ((1 + 2) * My_matrix)"),
             Ok(vec![
                 T::Rot,
                 T::OpenParen,
@@ -312,8 +319,21 @@ mod tests {
                 T::Number(2.),
                 T::CloseParen,
                 T::Star,
-                T::NamedMatrix(MatrixName::new("MyMatrix")),
+                T::NamedMatrix(MatrixName::new("My_matrix")),
                 T::CloseParen,
+            ])
+        );
+
+        assert_eq!(
+            tokenise_expression("ABC + A2B"),
+            Ok(vec![
+                T::NamedMatrix(MatrixName::new("A")),
+                T::NamedMatrix(MatrixName::new("B")),
+                T::NamedMatrix(MatrixName::new("C")),
+                T::Plus,
+                T::NamedMatrix(MatrixName::new("A")),
+                T::Number(2.),
+                T::NamedMatrix(MatrixName::new("B")),
             ])
         );
     }
