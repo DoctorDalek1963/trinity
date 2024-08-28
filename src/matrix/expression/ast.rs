@@ -825,6 +825,34 @@ mod tests {
             }),
             "([1 0; 0 1] ^ {-1}) * [1 0 0; 0 1 0; 0 0 1]"
         );
+
+        assert_eq!(
+            AstNode::to_expression_string(&AstNode::Add {
+                left: Box::new(AstNode::Multiply {
+                    left: Box::new(AstNode::Divide {
+                        left: Box::new(AstNode::Number(2.)),
+                        right: Box::new(AstNode::Number(3.))
+                    }),
+                    right: Box::new(AstNode::NamedMatrix(MatrixName::new("M")))
+                }),
+                right: Box::new(AstNode::Divide {
+                    left: Box::new(AstNode::NamedMatrix(MatrixName::new("X"))),
+                    right: Box::new(AstNode::Number(4.))
+                })
+            }),
+            "((2 / 3) * M) + (X / 4)"
+        );
+
+        assert_eq!(
+            AstNode::to_expression_string(&AstNode::Divide {
+                left: Box::new(AstNode::Number(1.)),
+                right: Box::new(AstNode::Add {
+                    left: Box::new(AstNode::Number(1.)),
+                    right: Box::new(AstNode::Number(1.))
+                })
+            }),
+            "1 / (1 + 1)"
+        );
     }
 
     #[test]
