@@ -42,6 +42,13 @@ pub enum AstNode<'n> {
         right: Box<Self>,
     },
 
+    /// Negate another AST node.
+    ///
+    /// This node type is used to implement subtraction. The parser converts the string "A - B"
+    /// into the AST (roughly) `Add { left: MatrixName("A"), right: Negate(MatrixName("B")) }`,
+    /// equivalent to `A + (-B)`.
+    Negate(Box<Self>),
+
     /// Raise one thing to the power of another.
     Exponent {
         /// The base part of the exponentiation. The `b` in `b^p`.
@@ -110,6 +117,17 @@ impl NumberOrMatrix {
             (Self::Matrix(a), Self::Matrix(b)) => Self::Matrix(Matrix2dOr3d::try_add(a, b)?),
             _ => Err(CannotAddNumberAndMatrix)?,
         })
+    }
+
+    /// Negate this number or matrix.
+    pub fn negate(self) -> Self {
+        match self {
+            Self::Number(number) => Self::Number(-number),
+            Self::Matrix(Matrix2dOr3d::TwoD(matrix)) => Self::Matrix(Matrix2dOr3d::TwoD(-matrix)),
+            Self::Matrix(Matrix2dOr3d::ThreeD(matrix)) => {
+                Self::Matrix(Matrix2dOr3d::ThreeD(-matrix))
+            }
+        }
     }
 
     /// Try to raise one thing to the power of another.
@@ -240,6 +258,7 @@ impl<'n> AstNode<'n> {
                 left.evaluate(map)?,
                 right.evaluate(map)?,
             )?),
+            Self::Negate(term) => Ok(NumberOrMatrix::negate(term.evaluate(map)?)),
             Self::Exponent { base, power } => Ok(NumberOrMatrix::try_power(
                 base.evaluate(map)?,
                 power.evaluate(map)?,
@@ -295,6 +314,14 @@ impl<'n> AstNode<'n> {
                     format!("({string})")
                 } else {
                     string
+                }
+            }
+            Self::Negate(term) => {
+                let term = term.internal_to_expression_string(false);
+                if !top_level {
+                    format!("(-{term})")
+                } else {
+                    format!("-{term}")
                 }
             }
             Self::Exponent { base, power } => {
@@ -503,7 +530,7 @@ mod tests {
                         DVec2::new(1., 3.),
                         DVec2::new(2., 4.)
                     ))),
-                    power: Box::new(AstNode::Number(-1.))
+                    power: Box::new(AstNode::Negate(Box::new(AstNode::Number(1.))))
                 },
                 &map2
             )
@@ -523,7 +550,7 @@ mod tests {
                         DVec3::new(2., 5., 2.),
                         DVec3::new(3., 6., 4.),
                     ))),
-                    power: Box::new(AstNode::Number(-1.))
+                    power: Box::new(AstNode::Negate(Box::new(AstNode::Number(1.))))
                 },
                 &map3
             )
@@ -683,6 +710,62 @@ mod tests {
                 DVec2::new(0.5, 1.)
             )))
         );
+
+        // 2 + (-1)
+        assert_relative_eq!(
+            AstNode::evaluate(
+                AstNode::Add {
+                    left: Box::new(AstNode::Number(2.)),
+                    right: Box::new(AstNode::Negate(Box::new(AstNode::Number(1.))))
+                },
+                &map2
+            )
+            .unwrap(),
+            NumberOrMatrix::Number(1.)
+        );
+
+        // M + (2 * (-M))
+        assert_relative_eq!(
+            AstNode::evaluate(
+                AstNode::Add {
+                    left: Box::new(AstNode::NamedMatrix(MatrixName::new("M"))),
+                    right: Box::new(AstNode::Multiply {
+                        left: Box::new(AstNode::Number(2.)),
+                        right: Box::new(AstNode::Negate(Box::new(AstNode::NamedMatrix(
+                            MatrixName::new("M")
+                        ))))
+                    })
+                },
+                &map2
+            )
+            .unwrap(),
+            NumberOrMatrix::Matrix(Matrix2dOr3d::TwoD(DMat2::from_cols(
+                DVec2::new(-1., -3.),
+                DVec2::new(-2., -4.)
+            )))
+        );
+
+        // X + (3.5 * (-X))
+        assert_relative_eq!(
+            AstNode::evaluate(
+                AstNode::Add {
+                    left: Box::new(AstNode::NamedMatrix(MatrixName::new("X"))),
+                    right: Box::new(AstNode::Multiply {
+                        left: Box::new(AstNode::Number(3.5)),
+                        right: Box::new(AstNode::Negate(Box::new(AstNode::NamedMatrix(
+                            MatrixName::new("X")
+                        ))))
+                    })
+                },
+                &map3
+            )
+            .unwrap(),
+            NumberOrMatrix::Matrix(Matrix2dOr3d::ThreeD(DMat3::from_cols(
+                DVec3::new(-2.5, -10., -2.5),
+                DVec3::new(-5., -12.5, -5.),
+                DVec3::new(-7.5, -15., -10.),
+            )))
+        );
     }
 
     #[test]
@@ -766,7 +849,7 @@ mod tests {
             AstNode::evaluate(
                 AstNode::Exponent {
                     base: Box::new(AstNode::Anonymous3dMatrix(DMat3::IDENTITY)),
-                    power: Box::new(AstNode::Number(-3.7))
+                    power: Box::new(AstNode::Negate(Box::new(AstNode::Number(3.7))))
                 },
                 &map3
             ),
@@ -807,7 +890,7 @@ mod tests {
             AstNode::evaluate(
                 AstNode::Exponent {
                     base: Box::new(AstNode::Anonymous2dMatrix(DMat2::ZERO)),
-                    power: Box::new(AstNode::Number(-1.))
+                    power: Box::new(AstNode::Negate(Box::new(AstNode::Number(1.))))
                 },
                 &map2
             ),
@@ -818,7 +901,7 @@ mod tests {
             AstNode::evaluate(
                 AstNode::Exponent {
                     base: Box::new(AstNode::Anonymous3dMatrix(DMat3::ZERO)),
-                    power: Box::new(AstNode::Number(-1.))
+                    power: Box::new(AstNode::Negate(Box::new(AstNode::Number(1.))))
                 },
                 &map3
             ),
@@ -887,7 +970,7 @@ mod tests {
             AstNode::to_expression_string(&AstNode::Multiply {
                 left: Box::new(AstNode::Exponent {
                     base: Box::new(AstNode::Anonymous2dMatrix(DMat2::IDENTITY)),
-                    power: Box::new(AstNode::Number(-1.))
+                    power: Box::new(AstNode::Negate(Box::new(AstNode::Number(1.))))
                 }),
                 right: Box::new(AstNode::Anonymous3dMatrix(DMat3::IDENTITY))
             }),
@@ -920,6 +1003,21 @@ mod tests {
                 })
             }),
             "1 / (1 + 1)"
+        );
+
+        assert_eq!(
+            AstNode::to_expression_string(&AstNode::Negate(Box::new(AstNode::NamedMatrix(
+                MatrixName::new("M")
+            )))),
+            "-M"
+        );
+
+        assert_eq!(
+            AstNode::to_expression_string(&AstNode::Add {
+                left: Box::new(AstNode::Number(2.)),
+                right: Box::new(AstNode::Negate(Box::new(AstNode::Number(3.))))
+            }),
+            "2 + (-3)"
         );
     }
 }
