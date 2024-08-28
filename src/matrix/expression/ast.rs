@@ -172,10 +172,7 @@ impl NumberOrMatrix {
                     Err(EvaluationError::CannotRaiseMatrixToNonInteger)
                 }
             }
-            (_, Self::Matrix(_)) => panic!(concat!(
-                "Anything raised to the power of a matrix is a fundamentally invalid AST. ",
-                "The parser should error before this point."
-            )),
+            (_, Self::Matrix(_)) => Err(EvaluationError::CannotRaiseToMatrix),
         }
     }
 }
@@ -209,6 +206,10 @@ pub enum EvaluationError {
     /// Cannot raise a matrix to a non-integer number.
     #[error("Cannot raise a matrix to a non-integer number")]
     CannotRaiseMatrixToNonInteger,
+
+    /// Cannot raise anything to the power of a matrix.
+    #[error("Cannot raise anything to the power of a matrix")]
+    CannotRaiseToMatrix,
 
     /// Cannot divide by a matrix.
     #[error("Cannot divide by a matrix")]
@@ -823,6 +824,28 @@ mod tests {
             ),
             Err(EvaluationError::CannotInvertSingularMatrix)
         );
+
+        assert_eq!(
+            AstNode::evaluate(
+                AstNode::Exponent {
+                    base: Box::new(AstNode::Number(2.3)),
+                    power: Box::new(AstNode::Anonymous2dMatrix(DMat2::IDENTITY)),
+                },
+                &map2,
+            ),
+            Err(EvaluationError::CannotRaiseToMatrix)
+        );
+
+        assert_eq!(
+            AstNode::evaluate(
+                AstNode::Exponent {
+                    base: Box::new(AstNode::Anonymous3dMatrix(DMat3::IDENTITY)),
+                    power: Box::new(AstNode::Anonymous3dMatrix(DMat3::IDENTITY)),
+                },
+                &map3,
+            ),
+            Err(EvaluationError::CannotRaiseToMatrix)
+        );
     }
 
     #[test]
@@ -898,18 +921,5 @@ mod tests {
             }),
             "1 / (1 + 1)"
         );
-    }
-
-    #[test]
-    #[should_panic = "Anything raised to the power of a matrix is a fundamentally invalid AST"]
-    fn ast_node_evaluation_raise_to_matrix() {
-        AstNode::evaluate(
-            AstNode::Exponent {
-                base: Box::new(AstNode::Number(2.3)),
-                power: Box::new(AstNode::Anonymous2dMatrix(DMat2::IDENTITY)),
-            },
-            &MatrixMap2::new(),
-        )
-        .ok();
     }
 }
