@@ -65,6 +65,7 @@
               cargo-nextest
               cargo-tarpaulin
               fd
+              just
             ]);
           shellHook = ''
             ${config.pre-commit.installationScript}
