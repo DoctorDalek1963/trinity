@@ -26,10 +26,15 @@ jobs:
       - name: Build the docs
         run: nix build .#doc-with-deps --print-build-logs --keep-going
 
+      - name: Arrange website structure
+        run: |
+          mkdir ./website
+          rsync -a ./result/share/doc/ ./website/docs
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './result/share/doc'
+          path: './website'
 
   deploy:
     needs: build
