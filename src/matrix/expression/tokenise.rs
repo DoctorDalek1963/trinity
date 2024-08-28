@@ -6,6 +6,7 @@ use nom::{
     number::complete::float, IResult, Parser,
 };
 use nom_regex::str::re_find;
+use thiserror::Error;
 
 /// A single token in the token list that results from tokenisation.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -57,15 +58,24 @@ pub enum Token<'n> {
 type NomError<'i> = ::nom::Err<::nom::error::Error<&'i str>>;
 
 /// An error that occurred during tokenisation.
-#[derive(Debug, PartialEq)]
-pub struct TokeniseError<'n> {
-    /// The internal error from [`nom`].
-    nom_error: NomError<'n>,
+#[derive(Debug, Error, PartialEq)]
+pub enum TokeniseError<'n> {
+    /// An error created by [`nom`].
+    #[error("Internal nom error: {nom_error:?}")]
+    NomError {
+        /// The internal error from [`nom`].
+        nom_error: NomError<'n>,
+    },
+
+    // TODO: Test the fuck out of these error types.
+    /// Some of the input was left unparsed.
+    #[error("Unparsed input after tokenising expression: '{0}'")]
+    UnparsedInput(&'n str),
 }
 
 impl<'n> From<NomError<'n>> for TokeniseError<'n> {
     fn from(nom_error: NomError<'n>) -> Self {
-        TokeniseError { nom_error }
+        TokeniseError::NomError { nom_error }
     }
 }
 
@@ -105,10 +115,9 @@ pub fn tokenise_expression<'n>(expression: &'n str) -> Result<Vec<Token<'n>>, To
         multispace1.map(|_| None),
     )))(expression)?;
 
-    debug_assert!(
-        input.is_empty(),
-        "The unparsed input should be empty, not '{input}'"
-    );
+    if !input.is_empty() {
+        return Err(TokeniseError::UnparsedInput(input));
+    }
 
     Ok(opt_tokens.into_iter().flatten().collect())
 }
