@@ -1,4 +1,4 @@
-name: Check the flake
+name: CI
 
 on: push
 
