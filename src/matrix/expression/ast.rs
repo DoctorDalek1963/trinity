@@ -23,6 +23,14 @@ pub enum AstNode<'n> {
         right: Box<Self>,
     },
 
+    /// Divide two things.
+    Divide {
+        /// The value on the left of the division.
+        left: Box<Self>,
+        /// The value on the right of the division.
+        right: Box<Self>,
+    },
+
     /// Add two things together.
     Add {
         /// The value on the left of the addition.
@@ -81,6 +89,15 @@ impl NumberOrMatrix {
             (Self::Matrix(a), Self::Number(b)) => Self::Matrix(a * b),
             (Self::Matrix(a), Self::Matrix(b)) => Self::Matrix(Matrix2dOr3d::try_mul(a, b)?),
         })
+    }
+
+    /// Try to divide.
+    pub fn try_div(self, rhs: Self) -> Result<Self, EvaluationError> {
+        match (self, rhs) {
+            (Self::Number(a), Self::Number(b)) => Ok(Self::Number(a / b)),
+            (Self::Matrix(a), Self::Number(b)) => Ok(Self::Matrix(a * b.recip())),
+            (_, Self::Matrix(_)) => Err(EvaluationError::CannotDivideByMatrix),
+        }
     }
 
     /// Try to add.
@@ -174,6 +191,10 @@ pub enum EvaluationError {
     #[error("Cannot raise a matrix to a non-integer number")]
     CannotRaiseMatrixToNonInteger,
 
+    /// Cannot divide by a matrix.
+    #[error("Cannot divide by a matrix")]
+    CannotDivideByMatrix,
+
     /// An error occurred when getting a value from the matrix map.
     #[error("{0}")]
     MatrixMapError(#[from] MatrixMapError),
@@ -184,6 +205,10 @@ impl<'n> AstNode<'n> {
     pub fn evaluate(self, map: &impl MatrixMap) -> Result<NumberOrMatrix, EvaluationError> {
         match self {
             Self::Multiply { left, right } => Ok(NumberOrMatrix::try_mul(
+                left.evaluate(map)?,
+                right.evaluate(map)?,
+            )?),
+            Self::Divide { left, right } => Ok(NumberOrMatrix::try_div(
                 left.evaluate(map)?,
                 right.evaluate(map)?,
             )?),
@@ -222,6 +247,16 @@ impl<'n> AstNode<'n> {
                 let left = left.internal_to_expression_string(false);
                 let right = right.internal_to_expression_string(false);
                 let string = format!("{left} * {right}");
+                if !top_level {
+                    format!("({string})")
+                } else {
+                    string
+                }
+            }
+            Self::Divide { left, right } => {
+                let left = left.internal_to_expression_string(false);
+                let right = right.internal_to_expression_string(false);
+                let string = format!("{left} / {right}");
                 if !top_level {
                     format!("({string})")
                 } else {
@@ -592,6 +627,38 @@ mod tests {
                 DVec2::new(4., 4.),
             )))
         );
+
+        // 3 / 4
+        assert_relative_eq!(
+            AstNode::evaluate(
+                AstNode::Divide {
+                    left: Box::new(AstNode::Number(3.)),
+                    right: Box::new(AstNode::Number(4.))
+                },
+                &map2
+            )
+            .unwrap(),
+            NumberOrMatrix::Number(0.75)
+        );
+
+        // [1 2; 3 4] / 4
+        assert_relative_eq!(
+            AstNode::evaluate(
+                AstNode::Divide {
+                    left: Box::new(AstNode::Anonymous2dMatrix(DMat2::from_cols(
+                        DVec2::new(1., 3.),
+                        DVec2::new(2., 4.)
+                    ))),
+                    right: Box::new(AstNode::Number(4.))
+                },
+                &map2
+            )
+            .unwrap(),
+            NumberOrMatrix::Matrix(Matrix2dOr3d::TwoD(DMat2::from_cols(
+                DVec2::new(0.25, 0.75),
+                DVec2::new(0.5, 1.)
+            )))
+        );
     }
 
     #[test]
@@ -680,6 +747,36 @@ mod tests {
                 &map3
             ),
             Err(EvaluationError::CannotRaiseMatrixToNonInteger)
+        );
+
+        // 2 / [1 2; 3 4]
+        assert_eq!(
+            AstNode::evaluate(
+                AstNode::Divide {
+                    left: Box::new(AstNode::Number(2.)),
+                    right: Box::new(AstNode::Anonymous2dMatrix(DMat2::from_cols(
+                        DVec2::new(1., 3.),
+                        DVec2::new(2., 4.)
+                    )))
+                },
+                &map2
+            ),
+            Err(EvaluationError::CannotDivideByMatrix)
+        );
+
+        // [1 0; 0 1] / [1 2; 3 4]
+        assert_eq!(
+            AstNode::evaluate(
+                AstNode::Divide {
+                    left: Box::new(AstNode::Anonymous2dMatrix(DMat2::IDENTITY)),
+                    right: Box::new(AstNode::Anonymous2dMatrix(DMat2::from_cols(
+                        DVec2::new(1., 3.),
+                        DVec2::new(2., 4.)
+                    )))
+                },
+                &map2
+            ),
+            Err(EvaluationError::CannotDivideByMatrix)
         );
     }
 
