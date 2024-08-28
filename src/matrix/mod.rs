@@ -9,12 +9,15 @@ use thiserror::Error;
 pub mod expression;
 pub mod map;
 
+/// The string used to build [`LEADING_MATRIX_NAME_REGEX`] and [`FULL_MATRIX_NAME_REGEX`].
+const REGEX_STRING: &str = r"^[A-Z][A-Za-z0-9_]*";
+
 lazy_static! {
     /// Matches a valid matrix name at the start of the string.
-    pub static ref LEADING_MATRIX_NAME_REGEX: Regex = Regex::new(r"^[A-Z][A-Za-z0-9_]*").unwrap();
+    pub static ref LEADING_MATRIX_NAME_REGEX: Regex = Regex::new(REGEX_STRING).unwrap();
 
     /// Matches a valid matrix name which takes up the whole string.
-    pub static ref FULL_MATRIX_NAME_REGEX: Regex = Regex::new(r"^[A-Z][A-Za-z0-9_]*$").unwrap();
+    pub static ref FULL_MATRIX_NAME_REGEX: Regex = Regex::new(&format!("{REGEX_STRING}$")).unwrap();
 }
 
 /// The name of a named matrix. Essentially a variable name.
