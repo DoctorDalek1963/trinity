@@ -1,0 +1,23 @@
+[package]
+name = "trinity-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+glam = { version = "0.29.0", features = ["approx", "rand"] }
+rand = "0.8.5"
+
+[dependencies.trinity]
+path = ".."
+
+[[bin]]
+name = "tokenise_expression"
+path = "fuzz_targets/tokenise_expression.rs"
+test = false
+doc = false
+bench = false

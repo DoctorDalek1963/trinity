@@ -37,7 +37,10 @@
           overlays = [(import inputs.rust-overlay)];
         };
 
-        rustToolchain = pkgs.rust-bin.stable.latest.default;
+        # rustToolchainStable = pkgs.rust-bin.stable.latest.default;
+        rustToolchainNightlyWith = extra: pkgs.rust-bin.selectLatestNightlyWith (toolchain: toolchain.default.override extra);
+
+        rustToolchain = rustToolchainNightlyWith {};
 
         craneLib = (inputs.crane.mkLib pkgs).overrideToolchain rustToolchain;
         src = craneLib.cleanCargoSource (craneLib.path ./.);
@@ -51,9 +54,10 @@
       in rec {
         devShells.default = pkgs.mkShell {
           nativeBuildInputs = [
-            (rustToolchain.override {
+            (rustToolchainNightlyWith {
               extensions = ["rust-analyzer" "rust-src" "rust-std"];
             })
+            pkgs.cargo-fuzz
             pkgs.cargo-mutants
             pkgs.cargo-nextest
             pkgs.cargo-tarpaulin
