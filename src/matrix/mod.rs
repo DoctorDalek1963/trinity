@@ -8,7 +8,8 @@ use std::ops::Mul;
 pub mod expression;
 pub mod map;
 
-/// The string used to build [`LEADING_MATRIX_NAME_REGEX`] and [`FULL_MATRIX_NAME_REGEX`].
+/// The string used to build [`LEADING_MATRIX_NAME_REGEX`](struct@LEADING_MATRIX_NAME_REGEX) and
+/// [`FULL_MATRIX_NAME_REGEX`](struct@FULL_MATRIX_NAME_REGEX).
 const REGEX_STRING: &str = r"^[A-Z][a-z_]*";
 
 lazy_static! {
