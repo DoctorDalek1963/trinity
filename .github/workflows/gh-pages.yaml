@@ -1,9 +1,18 @@
 name: GitHub Pages
 
-on: push
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
-  github-pages:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,10 +26,26 @@ jobs:
       - name: Build the docs
         run: nix build .#doc-with-deps --print-build-logs --keep-going
 
-      - name: Deploy
-        uses: JamesIves/github-pages-deploy-action@v4
-        if: github.ref == 'refs/heads/main'
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          folder: ./result/share/doc
-          git-config-name: 'github-actions[bot]'
-          git-config-email: 'github-actions[bot]@users.noreply.github.com'
+          path: './result/share/doc'
+
+  deploy:
+    needs: build
+
+    # Sets permissions for GITHUB_TOKEN
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    # Deploy to the github-pages environment
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
