@@ -93,33 +93,33 @@
           };
         };
 
-        checks = {
-          inherit (packages) trinity doc;
+        checks =
+          packages
+          // {
+            clippy = craneLib.cargoClippy (commonArgs
+              // {
+                inherit cargoArtifacts;
+                cargoClippyExtraArgs = "--all-targets -- --deny warnings";
+              });
 
-          clippy = craneLib.cargoClippy (commonArgs
-            // {
-              inherit cargoArtifacts;
-              cargoClippyExtraArgs = "--all-targets -- --deny warnings";
-            });
+            fmt = craneLib.cargoFmt {
+              inherit src;
+            };
 
-          fmt = craneLib.cargoFmt {
-            inherit src;
+            doctests = craneLib.cargoTest (commonArgs
+              // {
+                inherit cargoArtifacts;
+                cargoTestArgs = "--doc";
+              });
+
+            nextest = craneLib.cargoNextest (commonArgs
+              // {
+                inherit cargoArtifacts;
+                partitions = 1;
+                partitionType = "count";
+                cargoNextestExtraArgs = "--no-fail-fast";
+              });
           };
-
-          doctests = craneLib.cargoTest (commonArgs
-            // {
-              inherit cargoArtifacts;
-              cargoTestArgs = "--doc";
-            });
-
-          nextest = craneLib.cargoNextest (commonArgs
-            // {
-              inherit cargoArtifacts;
-              partitions = 1;
-              partitionType = "count";
-              cargoNextestExtraArgs = "--no-fail-fast";
-            });
-        };
 
         packages = rec {
           default = trinity;
