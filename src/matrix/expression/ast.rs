@@ -95,7 +95,7 @@ impl NumberOrMatrix {
             (Self::Matrix(a), Self::Number(b)) => Self::Matrix(a * b),
             (Self::Matrix(a), Self::Matrix(b)) => Self::Matrix(
                 Matrix2dOr3d::try_mul(a, b)
-                    .map_err(|()| EvaluationError::CannotMultiplyDifferentDimensions)?,
+                    .ok_or(EvaluationError::CannotMultiplyDifferentDimensions)?,
             ),
         })
     }
@@ -114,8 +114,7 @@ impl NumberOrMatrix {
         Ok(match (self, rhs) {
             (Self::Number(a), Self::Number(b)) => Self::Number(a + b),
             (Self::Matrix(a), Self::Matrix(b)) => Self::Matrix(
-                Matrix2dOr3d::try_add(a, b)
-                    .map_err(|()| EvaluationError::CannotAddDifferentDimensions)?,
+                Matrix2dOr3d::try_add(a, b).ok_or(EvaluationError::CannotAddDifferentDimensions)?,
             ),
             _ => Err(EvaluationError::CannotAddNumberAndMatrix)?,
         })

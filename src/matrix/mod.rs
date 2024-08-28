@@ -3,8 +3,7 @@
 use glam::f64::{DMat2, DMat3};
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::{fmt, ops::Mul};
-use thiserror::Error;
+use std::ops::Mul;
 
 pub mod expression;
 pub mod map;
@@ -129,22 +128,22 @@ impl Matrix2dOr3d {
     /// Try to multiply two matrices together.
     ///
     /// This method will fail if the two matrices are of different dimensions.
-    pub fn try_mul(left: Self, right: Self) -> Result<Self, ()> {
+    pub fn try_mul(left: Self, right: Self) -> Option<Self> {
         match (left, right) {
-            (Self::TwoD(a), Self::TwoD(b)) => Ok(Self::TwoD(a * b)),
-            (Self::ThreeD(a), Self::ThreeD(b)) => Ok(Self::ThreeD(a * b)),
-            _ => Err(()),
+            (Self::TwoD(a), Self::TwoD(b)) => Some(Self::TwoD(a * b)),
+            (Self::ThreeD(a), Self::ThreeD(b)) => Some(Self::ThreeD(a * b)),
+            _ => None,
         }
     }
 
     /// Try to add two matrices together.
     ///
     /// This method will fail if the two matrices are of different dimensions.
-    pub fn try_add(left: Self, right: Self) -> Result<Self, ()> {
+    pub fn try_add(left: Self, right: Self) -> Option<Self> {
         match (left, right) {
-            (Self::TwoD(a), Self::TwoD(b)) => Ok(Self::TwoD(a + b)),
-            (Self::ThreeD(a), Self::ThreeD(b)) => Ok(Self::ThreeD(a + b)),
-            _ => Err(()),
+            (Self::TwoD(a), Self::TwoD(b)) => Some(Self::TwoD(a + b)),
+            (Self::ThreeD(a), Self::ThreeD(b)) => Some(Self::ThreeD(a + b)),
+            _ => None,
         }
     }
 }
