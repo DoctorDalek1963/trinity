@@ -12,6 +12,9 @@ use glam::f64::{DMat2, DMat3};
 use std::fmt;
 use thiserror::Error;
 
+/// The epsilon value to use for relative comparisons.
+const EPSILON: f64 = 0.000000001;
+
 /// A node in the tree. Also represents the tree itself, since the root is just a node.
 #[derive(Clone, Debug, PartialEq)]
 pub enum AstNode<'n> {
@@ -116,7 +119,7 @@ impl NumberOrMatrix {
             (Self::Matrix(Matrix2dOr3d::TwoD(base)), Self::Number(power)) => {
                 if power.round().relative_eq(
                     &power,
-                    0.000000001,
+                    EPSILON,
                     <f64 as RelativeEq>::default_max_relative(),
                 ) {
                     let needs_invert = power.round() < 0.;
@@ -125,7 +128,15 @@ impl NumberOrMatrix {
                     let result = integer_power(base, power);
 
                     Ok(Self::Matrix(Matrix2dOr3d::TwoD(if needs_invert {
-                        result.inverse()
+                        if !result.determinant().relative_eq(
+                            &0.,
+                            EPSILON,
+                            <f64 as RelativeEq>::default_max_relative(),
+                        ) {
+                            result.inverse()
+                        } else {
+                            Err(EvaluationError::CannotInvertSingularMatrix)?
+                        }
                     } else {
                         result
                     })))
@@ -145,7 +156,15 @@ impl NumberOrMatrix {
                     let result = integer_power(base, power);
 
                     Ok(Self::Matrix(Matrix2dOr3d::ThreeD(if needs_invert {
-                        result.inverse()
+                        if !result.determinant().relative_eq(
+                            &0.,
+                            EPSILON,
+                            <f64 as RelativeEq>::default_max_relative(),
+                        ) {
+                            result.inverse()
+                        } else {
+                            Err(EvaluationError::CannotInvertSingularMatrix)?
+                        }
                     } else {
                         result
                     })))
@@ -194,6 +213,10 @@ pub enum EvaluationError {
     /// Cannot divide by a matrix.
     #[error("Cannot divide by a matrix")]
     CannotDivideByMatrix,
+
+    /// Cannot invert a singular (determinant 0) matrix.
+    #[error("Cannot invert a singular (determinant 0) matrix")]
+    CannotInvertSingularMatrix,
 
     /// An error occurred when getting a value from the matrix map.
     #[error("{0}")]
@@ -777,6 +800,28 @@ mod tests {
                 &map2
             ),
             Err(EvaluationError::CannotDivideByMatrix)
+        );
+
+        assert_eq!(
+            AstNode::evaluate(
+                AstNode::Exponent {
+                    base: Box::new(AstNode::Anonymous2dMatrix(DMat2::ZERO)),
+                    power: Box::new(AstNode::Number(-1.))
+                },
+                &map2
+            ),
+            Err(EvaluationError::CannotInvertSingularMatrix)
+        );
+
+        assert_eq!(
+            AstNode::evaluate(
+                AstNode::Exponent {
+                    base: Box::new(AstNode::Anonymous3dMatrix(DMat3::ZERO)),
+                    power: Box::new(AstNode::Number(-1.))
+                },
+                &map3
+            ),
+            Err(EvaluationError::CannotInvertSingularMatrix)
         );
     }
 
