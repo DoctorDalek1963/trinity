@@ -70,7 +70,7 @@ pub enum TokeniseError<'n> {
         nom_error: NomError<'n>,
     },
 
-    /// Some of the input was left unparsed.
+    /// Some of the input was left un-tokenised.
     #[error("Unconsumed input after tokenising expression: '{0}'")]
     UnconsumedInput(&'n str),
 }

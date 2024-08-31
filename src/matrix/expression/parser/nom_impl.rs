@@ -5,21 +5,115 @@ use crate::matrix::expression::{ast::AstNode, tokenise::Token};
 use glam::{DMat2, DMat3, DVec2, DVec3};
 use nom::{branch::alt, bytes::complete::take, sequence::tuple, IResult, Parser};
 
+/// Parse a matrix expression from a list of tokens.
+pub fn parse_expression<'n, 'l: 'n>(
+    tokens: TokenList<'n, 'l>,
+) -> IResult<TokenList<'n, 'l>, AstNode<'n>> {
+    // alt((
+    //     parse_exponent,
+    //     parse_divide,
+    //     parse_multiply,
+    //     parse_addition,
+    //     parse_term,
+    // ))
+    // .parse(tokens)
+    parse_addition(tokens)
+}
+
+/// Parse an addition.
+fn parse_addition<'n, 'l: 'n>(
+    tokens: TokenList<'n, 'l>,
+) -> IResult<TokenList<'n, 'l>, AstNode<'n>> {
+    let (tokens, left) = parse_multiply(tokens)?;
+    let (tokens, ()) = consume_basic_token(Token::Plus)(tokens)?;
+    let (tokens, right) = parse_addition(tokens)?;
+
+    Ok((
+        tokens,
+        AstNode::Add {
+            left: Box::new(left),
+            right: Box::new(right),
+        },
+    ))
+}
+
+/// Parse a multiplication.
+fn parse_multiply<'n, 'l: 'n>(
+    tokens: TokenList<'n, 'l>,
+) -> IResult<TokenList<'n, 'l>, AstNode<'n>> {
+    let (tokens, left) = parse_divide(tokens)?;
+    let (tokens, ()) = consume_basic_token(Token::Star)(tokens)?;
+    let (tokens, right) = parse_multiply(tokens)?;
+
+    Ok((
+        tokens,
+        AstNode::Multiply {
+            left: Box::new(left),
+            right: Box::new(right),
+        },
+    ))
+}
+
+/// Parse a division.
+fn parse_divide<'n, 'l: 'n>(tokens: TokenList<'n, 'l>) -> IResult<TokenList<'n, 'l>, AstNode<'n>> {
+    let (tokens, left) = parse_exponent(tokens)?;
+    let (tokens, ()) = consume_basic_token(Token::Slash)(tokens)?;
+    let (tokens, right) = parse_divide(tokens)?;
+
+    Ok((
+        tokens,
+        AstNode::Divide {
+            left: Box::new(left),
+            right: Box::new(right),
+        },
+    ))
+}
+
+/// Parse an exponentiation.
+fn parse_exponent<'n, 'l: 'n>(
+    tokens: TokenList<'n, 'l>,
+) -> IResult<TokenList<'n, 'l>, AstNode<'n>> {
+    let (tokens, base) = parse_term(tokens)?;
+    let (tokens, ()) = consume_basic_token(Token::Caret)(tokens)?;
+    dbg!(tokens, &base);
+
+    let (tokens, power) = {
+        match consume_basic_token(Token::OpenBrace)(tokens) {
+            Ok((tokens, ())) => {
+                let (tokens, power) = parse_term(tokens)?;
+                let (tokens, ()) = consume_basic_token(Token::CloseBrace)(tokens)?;
+                (tokens, power)
+            }
+            Err(_) => parse_term(tokens)?,
+        }
+    };
+
+    Ok((
+        tokens,
+        AstNode::Exponent {
+            base: Box::new(base),
+            power: Box::new(power),
+        },
+    ))
+}
+
 /// Parse a single term of the AST. See [`crate::matrix::expression::parser`] for details on the
 /// grammar.
 fn parse_term<'n, 'l: 'n>(tokens: TokenList<'n, 'l>) -> IResult<TokenList<'n, 'l>, AstNode<'n>> {
     alt((
+        tuple((consume_basic_token(Token::Minus), parse_term))
+            .map(|((), term)| AstNode::Negate(Box::new(term))),
         parse_named_matrix,
         parse_rotation_matrix,
         parse_number,
         parse_anonymous_2d_matrix,
         parse_anonymous_3d_matrix,
-        // tuple((
-        //     consume_basic_token(Token::OpenParen),
-        //     parse_expression,
-        //     consume_basic_token(Token::CloseParen),
-        // ))
-        // .map(|((), expression, ())| expression),
+        tuple((
+            consume_basic_token(Token::OpenParen),
+            parse_expression,
+            consume_basic_token(Token::CloseParen),
+        ))
+        .map(|((), expression, ())| expression),
     ))
     .parse(tokens)
 }
@@ -233,6 +327,72 @@ mod tests {
                     DVec3::new(2., 5., 8.),
                     DVec3::new(3., 6., 9.),
                 ))
+            ))
+        );
+
+        assert_eq!(
+            parse_exponent(TL::new(&[
+                T::NamedMatrix(MatrixName::new("M")),
+                T::Caret,
+                T::Number(2.)
+            ])),
+            Ok((
+                TL::EMPTY,
+                AstNode::Exponent {
+                    base: Box::new(AstNode::NamedMatrix(MatrixName::new("M"))),
+                    power: Box::new(AstNode::Number(2.))
+                }
+            ))
+        );
+
+        assert_eq!(
+            parse_exponent(TL::new(&[
+                T::NamedMatrix(MatrixName::new("M")),
+                T::Caret,
+                T::Minus,
+                T::Number(1.)
+            ])),
+            Ok((
+                TL::EMPTY,
+                AstNode::Exponent {
+                    base: Box::new(AstNode::NamedMatrix(MatrixName::new("M"))),
+                    power: Box::new(AstNode::Negate(Box::new(AstNode::Number(1.))))
+                }
+            ))
+        );
+
+        assert_eq!(
+            parse_exponent(TL::new(&[
+                T::NamedMatrix(MatrixName::new("M")),
+                T::Caret,
+                T::OpenBrace,
+                T::Minus,
+                T::Number(2.5),
+                T::CloseBrace,
+            ])),
+            Ok((
+                TL::EMPTY,
+                AstNode::Exponent {
+                    base: Box::new(AstNode::NamedMatrix(MatrixName::new("M"))),
+                    power: Box::new(AstNode::Negate(Box::new(AstNode::Number(2.5))))
+                }
+            ))
+        );
+
+        assert_eq!(
+            parse_exponent(TL::new(&[
+                T::NamedMatrix(MatrixName::new("M")),
+                T::Caret,
+                T::OpenBrace,
+                T::Number(0.5),
+                T::CloseBrace,
+            ])),
+            Ok((
+                TL::EMPTY,
+                AstNode::Exponent {
+                    base: Box::new(AstNode::NamedMatrix(MatrixName::new("M"))),
+                    power: Box::new(AstNode::Number(0.5))
+                }
             ))
         );
     }
