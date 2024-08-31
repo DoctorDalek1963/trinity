@@ -21,71 +21,90 @@ pub fn parse_expression(tokens: TokenList) -> IResult<TokenList, AstNode> {
 /// Parse an addition.
 fn parse_addition(tokens: TokenList) -> IResult<TokenList, AstNode> {
     let (tokens, left) = parse_multiply(tokens)?;
-    let (tokens, ()) = consume_basic_token(Token::Plus)(tokens)?;
-    let (tokens, right) = parse_addition(tokens)?;
 
-    Ok((
-        tokens,
-        AstNode::Add {
-            left: Box::new(left),
-            right: Box::new(right),
-        },
-    ))
+    match consume_basic_token(Token::Plus)(tokens) {
+        Ok((tokens, ())) => {
+            let (tokens, right) = parse_addition(tokens)?;
+
+            Ok((
+                tokens,
+                AstNode::Add {
+                    left: Box::new(left),
+                    right: Box::new(right),
+                },
+            ))
+        }
+        Err(_) => Ok((tokens, left)),
+    }
 }
 
 /// Parse a multiplication.
 fn parse_multiply(tokens: TokenList) -> IResult<TokenList, AstNode> {
     let (tokens, left) = parse_divide(tokens)?;
-    let (tokens, ()) = consume_basic_token(Token::Star)(tokens)?;
-    let (tokens, right) = parse_multiply(tokens)?;
 
-    Ok((
-        tokens,
-        AstNode::Multiply {
-            left: Box::new(left),
-            right: Box::new(right),
-        },
-    ))
+    match consume_basic_token(Token::Star)(tokens) {
+        Ok((tokens, ())) => {
+            let (tokens, right) = parse_multiply(tokens)?;
+
+            Ok((
+                tokens,
+                AstNode::Multiply {
+                    left: Box::new(left),
+                    right: Box::new(right),
+                },
+            ))
+        }
+        Err(_) => Ok((tokens, left)),
+    }
 }
 
 /// Parse a division.
 fn parse_divide(tokens: TokenList) -> IResult<TokenList, AstNode> {
     let (tokens, left) = parse_exponent(tokens)?;
-    let (tokens, ()) = consume_basic_token(Token::Slash)(tokens)?;
-    let (tokens, right) = parse_divide(tokens)?;
 
-    Ok((
-        tokens,
-        AstNode::Divide {
-            left: Box::new(left),
-            right: Box::new(right),
-        },
-    ))
+    match consume_basic_token(Token::Slash)(tokens) {
+        Ok((tokens, ())) => {
+            let (tokens, right) = parse_divide(tokens)?;
+
+            Ok((
+                tokens,
+                AstNode::Divide {
+                    left: Box::new(left),
+                    right: Box::new(right),
+                },
+            ))
+        }
+        Err(_) => Ok((tokens, left)),
+    }
 }
 
 /// Parse an exponentiation.
 fn parse_exponent(tokens: TokenList) -> IResult<TokenList, AstNode> {
     let (tokens, base) = parse_term(tokens)?;
-    let (tokens, ()) = consume_basic_token(Token::Caret)(tokens)?;
 
-    let (tokens, power) = {
-        match consume_basic_token(Token::OpenBrace)(tokens) {
-            Ok((tokens, ())) => {
-                let (tokens, power) = parse_term(tokens)?;
-                let (tokens, ()) = consume_basic_token(Token::CloseBrace)(tokens)?;
-                (tokens, power)
-            }
-            Err(_) => parse_term(tokens)?,
+    match consume_basic_token(Token::Caret)(tokens) {
+        Ok((tokens, ())) => {
+            let (tokens, power) = {
+                match consume_basic_token(Token::OpenBrace)(tokens) {
+                    Ok((tokens, ())) => {
+                        let (tokens, power) = parse_exponent(tokens)?;
+                        let (tokens, ()) = consume_basic_token(Token::CloseBrace)(tokens)?;
+                        (tokens, power)
+                    }
+                    Err(_) => parse_exponent(tokens)?,
+                }
+            };
+
+            Ok((
+                tokens,
+                AstNode::Exponent {
+                    base: Box::new(base),
+                    power: Box::new(power),
+                },
+            ))
         }
-    };
-
-    Ok((
-        tokens,
-        AstNode::Exponent {
-            base: Box::new(base),
-            power: Box::new(power),
-        },
-    ))
+        Err(_) => Ok((tokens, base)),
+    }
 }
 
 /// Parse a single term of the AST. See [`crate::matrix::expression::parser`] for details on the
@@ -379,19 +398,113 @@ mod tests {
             ))
         );
 
-        // assert_eq!(
-        //     parse_multiply(TL::new(&[
-        //         T::Number(2.),
-        //         T::Star,
-        //         T::NamedMatrix(MatrixName::new("M")),
-        //     ])),
-        //     Ok((
-        //         TL::EMPTY,
-        //         AstNode::Multiply {
-        //             left: Box::new(AstNode::Number(2.)),
-        //             right: Box::new(AstNode::NamedMatrix(MatrixName::new("M")))
-        //         }
-        //     ))
-        // );
+        assert_eq!(
+            parse_divide(TL::new(&[T::Number(2.), T::Slash, T::Number(3.),])),
+            Ok((
+                TL::EMPTY,
+                AstNode::Divide {
+                    left: Box::new(AstNode::Number(2.)),
+                    right: Box::new(AstNode::Number(3.))
+                }
+            ))
+        );
+
+        assert_eq!(
+            parse_multiply(TL::new(&[
+                T::Number(2.),
+                T::Star,
+                T::NamedMatrix(MatrixName::new("M")),
+            ])),
+            Ok((
+                TL::EMPTY,
+                AstNode::Multiply {
+                    left: Box::new(AstNode::Number(2.)),
+                    right: Box::new(AstNode::NamedMatrix(MatrixName::new("M")))
+                }
+            ))
+        );
+
+        assert_eq!(
+            parse_addition(TL::new(&[
+                T::NamedMatrix(MatrixName::new("A")),
+                T::Plus,
+                T::NamedMatrix(MatrixName::new("B")),
+            ])),
+            Ok((
+                TL::EMPTY,
+                AstNode::Add {
+                    left: Box::new(AstNode::NamedMatrix(MatrixName::new("A"))),
+                    right: Box::new(AstNode::NamedMatrix(MatrixName::new("B")))
+                }
+            ))
+        );
+    }
+
+    #[test]
+    fn parse_compound_success() {
+        // A + B * C
+        assert_eq!(
+            parse_expression(TL::new(&[
+                T::NamedMatrix(MatrixName::new("A")),
+                T::Plus,
+                T::NamedMatrix(MatrixName::new("B")),
+                T::Star,
+                T::NamedMatrix(MatrixName::new("C")),
+            ])),
+            Ok((
+                TL::EMPTY,
+                AstNode::Add {
+                    left: Box::new(AstNode::NamedMatrix(MatrixName::new("A"))),
+                    right: Box::new(AstNode::Multiply {
+                        left: Box::new(AstNode::NamedMatrix(MatrixName::new("B"))),
+                        right: Box::new(AstNode::NamedMatrix(MatrixName::new("C")))
+                    })
+                }
+            ))
+        );
+
+        // A * B + C
+        assert_eq!(
+            parse_expression(TL::new(&[
+                T::NamedMatrix(MatrixName::new("A")),
+                T::Star,
+                T::NamedMatrix(MatrixName::new("B")),
+                T::Plus,
+                T::NamedMatrix(MatrixName::new("C")),
+            ])),
+            Ok((
+                TL::EMPTY,
+                AstNode::Add {
+                    left: Box::new(AstNode::Multiply {
+                        left: Box::new(AstNode::NamedMatrix(MatrixName::new("A"))),
+                        right: Box::new(AstNode::NamedMatrix(MatrixName::new("B")))
+                    }),
+                    right: Box::new(AstNode::NamedMatrix(MatrixName::new("C")))
+                }
+            ))
+        );
+
+        // A * (B + C)
+        assert_eq!(
+            parse_expression(TL::new(&[
+                T::NamedMatrix(MatrixName::new("A")),
+                T::Star,
+                T::OpenParen,
+                T::NamedMatrix(MatrixName::new("B")),
+                T::Plus,
+                T::NamedMatrix(MatrixName::new("C")),
+                T::CloseParen,
+            ])),
+            Ok((
+                TL::EMPTY,
+                AstNode::Multiply {
+                    left: Box::new(AstNode::NamedMatrix(MatrixName::new("A"))),
+                    right: Box::new(AstNode::Add {
+                        left: Box::new(AstNode::NamedMatrix(MatrixName::new("B"))),
+                        right: Box::new(AstNode::NamedMatrix(MatrixName::new("C")))
+                    })
+                }
+            ))
+        );
     }
 }
