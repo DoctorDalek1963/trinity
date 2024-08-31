@@ -15,7 +15,6 @@
 //! rotationMatrix    -> "rot" "(" NUMBER ")" ;
 //! ```
 
-#[allow(dead_code, reason = "The implementation is still a WIP")]
 mod nom_impl;
 mod tokens;
 
