@@ -16,7 +16,12 @@ pub struct TokenList<'n, 'l: 'n> {
 }
 
 impl<'n, 'l: 'n> TokenList<'n, 'l> {
+    /// The empty [`TokenList`], primarily used for asserting parser behaviour.
+    #[cfg(test)]
+    pub const EMPTY: Self = Self { tokens: &[] };
+
     /// Create a new [`TokenList`] from this list of tokens.
+    #[inline]
     pub fn new<'t: 'l>(tokens: &'t [Token<'n>]) -> Self {
         Self { tokens }
     }
