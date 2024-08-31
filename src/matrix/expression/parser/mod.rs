@@ -23,33 +23,22 @@ use super::{ast::AstNode, tokenise::Token};
 use thiserror::Error;
 
 /// The default error used by [`nom::IResult`].
-type NomError<'n> = ::nom::Err<::nom::error::Error<Vec<Token<'n>>>>;
+type NomError = ::nom::Err<::nom::error::Error<Vec<Token>>>;
 
 /// An error that occurred during parsing.
 #[derive(Debug, Error, PartialEq)]
-pub enum ParseError<'n> {
+pub enum ParseError {
     /// An error created by [`nom`].
-    #[error("Internal nom error: {nom_error:?}")]
-    NomError {
-        /// The internal error from [`nom`].
-        nom_error: NomError<'n>,
-    },
+    #[error("Internal nom error: {0:?}")]
+    NomError(#[from] NomError),
 
     /// Some of the input was left unparsed.
     #[error("Unconsumed input after tokenising expression: '{0:?}'")]
-    UnconsumedInput(Vec<Token<'n>>),
-}
-
-impl<'n> From<NomError<'n>> for ParseError<'n> {
-    fn from(nom_error: NomError<'n>) -> Self {
-        ParseError::NomError { nom_error }
-    }
+    UnconsumedInput(Vec<Token>),
 }
 
 /// Parse a list of tokens into an AST.
-pub fn parse_tokens_into_ast<'n, 'l: 'n>(
-    tokens: &'l [Token<'n>],
-) -> Result<AstNode<'n>, ParseError<'n>> {
+pub fn parse_tokens_into_ast<'l>(tokens: &'l [Token]) -> Result<AstNode, ParseError> {
     let (token_list, ast) = self::nom_impl::parse_expression(self::tokens::TokenList::new(&tokens))
         .map_err(|err| err.map_input(|token_list| token_list.tokens.to_vec()))?;
 

@@ -13,7 +13,7 @@ const EPSILON: f64 = 0.000000001;
 
 /// A node in the tree. Also represents the tree itself, since the root is just a node.
 #[derive(Clone, Debug, PartialEq)]
-pub enum AstNode<'n> {
+pub enum AstNode {
     /// Multiply two things together.
     Multiply {
         /// The value on the left of the multiplication.
@@ -61,7 +61,7 @@ pub enum AstNode<'n> {
     Number(f64),
 
     /// A named matrix. See [`MatrixName`].
-    NamedMatrix(MatrixName<'n>),
+    NamedMatrix(MatrixName),
 
     /// A rotation matrix, written in the expression like `rot(45)` or `rot(90)`.
     RotationMatrix {
@@ -229,7 +229,7 @@ pub enum EvaluationError {
     MatrixMapError(#[from] MatrixMapError),
 }
 
-impl<'n> AstNode<'n> {
+impl AstNode {
     /// Evaluate this AST node by recursively evaulating whatever else needs to be evaluated.
     pub fn evaluate(self, map: &impl MatrixMap) -> Result<NumberOrMatrix, EvaluationError> {
         match self {
@@ -251,7 +251,7 @@ impl<'n> AstNode<'n> {
                 power.evaluate(map)?,
             )?),
             Self::Number(number) => Ok(NumberOrMatrix::Number(number)),
-            Self::NamedMatrix(name) => Ok(NumberOrMatrix::Matrix(map.get(name)?.into())),
+            Self::NamedMatrix(name) => Ok(NumberOrMatrix::Matrix(map.get(&name)?.into())),
             Self::RotationMatrix { degrees } => Ok(NumberOrMatrix::Matrix(Matrix2dOr3d::TwoD(
                 DMat2::from_angle(degrees.to_radians()),
             ))),

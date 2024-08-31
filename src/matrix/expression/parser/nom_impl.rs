@@ -6,9 +6,7 @@ use glam::{DMat2, DMat3, DVec2, DVec3};
 use nom::{branch::alt, bytes::complete::take, sequence::tuple, IResult, Parser};
 
 /// Parse a matrix expression from a list of tokens.
-pub fn parse_expression<'n, 'l: 'n>(
-    tokens: TokenList<'n, 'l>,
-) -> IResult<TokenList<'n, 'l>, AstNode<'n>> {
+pub fn parse_expression<'l>(tokens: TokenList<'l>) -> IResult<TokenList<'l>, AstNode> {
     // alt((
     //     parse_exponent,
     //     parse_divide,
@@ -21,9 +19,7 @@ pub fn parse_expression<'n, 'l: 'n>(
 }
 
 /// Parse an addition.
-fn parse_addition<'n, 'l: 'n>(
-    tokens: TokenList<'n, 'l>,
-) -> IResult<TokenList<'n, 'l>, AstNode<'n>> {
+fn parse_addition<'l>(tokens: TokenList<'l>) -> IResult<TokenList<'l>, AstNode> {
     let (tokens, left) = parse_multiply(tokens)?;
     let (tokens, ()) = consume_basic_token(Token::Plus)(tokens)?;
     let (tokens, right) = parse_addition(tokens)?;
@@ -38,9 +34,7 @@ fn parse_addition<'n, 'l: 'n>(
 }
 
 /// Parse a multiplication.
-fn parse_multiply<'n, 'l: 'n>(
-    tokens: TokenList<'n, 'l>,
-) -> IResult<TokenList<'n, 'l>, AstNode<'n>> {
+fn parse_multiply<'l>(tokens: TokenList<'l>) -> IResult<TokenList<'l>, AstNode> {
     let (tokens, left) = parse_divide(tokens)?;
     let (tokens, ()) = consume_basic_token(Token::Star)(tokens)?;
     let (tokens, right) = parse_multiply(tokens)?;
@@ -55,7 +49,7 @@ fn parse_multiply<'n, 'l: 'n>(
 }
 
 /// Parse a division.
-fn parse_divide<'n, 'l: 'n>(tokens: TokenList<'n, 'l>) -> IResult<TokenList<'n, 'l>, AstNode<'n>> {
+fn parse_divide<'l>(tokens: TokenList<'l>) -> IResult<TokenList<'l>, AstNode> {
     let (tokens, left) = parse_exponent(tokens)?;
     let (tokens, ()) = consume_basic_token(Token::Slash)(tokens)?;
     let (tokens, right) = parse_divide(tokens)?;
@@ -70,12 +64,9 @@ fn parse_divide<'n, 'l: 'n>(tokens: TokenList<'n, 'l>) -> IResult<TokenList<'n, 
 }
 
 /// Parse an exponentiation.
-fn parse_exponent<'n, 'l: 'n>(
-    tokens: TokenList<'n, 'l>,
-) -> IResult<TokenList<'n, 'l>, AstNode<'n>> {
+fn parse_exponent<'l>(tokens: TokenList<'l>) -> IResult<TokenList<'l>, AstNode> {
     let (tokens, base) = parse_term(tokens)?;
     let (tokens, ()) = consume_basic_token(Token::Caret)(tokens)?;
-    dbg!(tokens, &base);
 
     let (tokens, power) = {
         match consume_basic_token(Token::OpenBrace)(tokens) {
@@ -99,7 +90,7 @@ fn parse_exponent<'n, 'l: 'n>(
 
 /// Parse a single term of the AST. See [`crate::matrix::expression::parser`] for details on the
 /// grammar.
-fn parse_term<'n, 'l: 'n>(tokens: TokenList<'n, 'l>) -> IResult<TokenList<'n, 'l>, AstNode<'n>> {
+fn parse_term<'l>(tokens: TokenList<'l>) -> IResult<TokenList<'l>, AstNode> {
     alt((
         tuple((consume_basic_token(Token::Minus), parse_term))
             .map(|((), term)| AstNode::Negate(Box::new(term))),
@@ -119,9 +110,7 @@ fn parse_term<'n, 'l: 'n>(tokens: TokenList<'n, 'l>) -> IResult<TokenList<'n, 'l
 }
 
 /// Parse an [`AstNode::RotationMatrix`].
-fn parse_rotation_matrix<'n, 'l: 'n>(
-    tokens: TokenList<'n, 'l>,
-) -> IResult<TokenList<'n, 'l>, AstNode<'n>> {
+fn parse_rotation_matrix<'l>(tokens: TokenList<'l>) -> IResult<TokenList<'l>, AstNode> {
     tuple((
         consume_basic_token(Token::Rot),
         consume_basic_token(Token::OpenParen),
@@ -136,9 +125,7 @@ fn parse_rotation_matrix<'n, 'l: 'n>(
 }
 
 /// Parse an anonymous 2D matrix, like `[1 2; 3 4]`.
-fn parse_anonymous_2d_matrix<'n, 'l: 'n>(
-    tokens: TokenList<'n, 'l>,
-) -> IResult<TokenList<'n, 'l>, AstNode<'n>> {
+fn parse_anonymous_2d_matrix<'l>(tokens: TokenList<'l>) -> IResult<TokenList<'l>, AstNode> {
     let (tokens, ()) = consume_basic_token(Token::OpenSquareBracket)(tokens)?;
     let (tokens, ix) = parse_number(tokens)?;
     let (tokens, jx) = parse_number(tokens)?;
@@ -158,9 +145,7 @@ fn parse_anonymous_2d_matrix<'n, 'l: 'n>(
 }
 
 /// Parse an anonymous 3D matrix, like `[1 2 3; 4 5 6; 7 8 9]`.
-fn parse_anonymous_3d_matrix<'n, 'l: 'n>(
-    tokens: TokenList<'n, 'l>,
-) -> IResult<TokenList<'n, 'l>, AstNode<'n>> {
+fn parse_anonymous_3d_matrix<'l>(tokens: TokenList<'l>) -> IResult<TokenList<'l>, AstNode> {
     let (tokens, ()) = consume_basic_token(Token::OpenSquareBracket)(tokens)?;
     let (tokens, ix) = parse_number(tokens)?;
     let (tokens, jx) = parse_number(tokens)?;
@@ -198,12 +183,10 @@ fn parse_anonymous_3d_matrix<'n, 'l: 'n>(
 }
 
 /// Consume a basic token that has no corresponding [`AstNode`].
-///
-/// I don't know why the restriction `'n: 'l` is necessary, but it won't compile without it.
-fn consume_basic_token<'n: 'l, 'l: 'n>(
-    expected_token: Token<'n>,
-) -> impl Fn(TokenList<'n, 'l>) -> IResult<TokenList<'n, 'l>, ()> {
-    move |tokens: TokenList<'n, 'l>| {
+fn consume_basic_token<'l>(
+    expected_token: Token,
+) -> impl Fn(TokenList<'l>) -> IResult<TokenList<'l>, ()> {
+    move |tokens: TokenList<'l>| {
         let (rest, tok) = take(1usize)(tokens)?;
         if !tok.tokens.is_empty() && tok.tokens[0] == expected_token {
             Ok((rest, ()))
@@ -217,7 +200,7 @@ fn consume_basic_token<'n: 'l, 'l: 'n>(
 }
 
 /// Parse an [`AstNode::Number`].
-fn parse_number<'n, 'l: 'n>(tokens: TokenList<'n, 'l>) -> IResult<TokenList<'n, 'l>, AstNode<'n>> {
+fn parse_number<'l>(tokens: TokenList<'l>) -> IResult<TokenList<'l>, AstNode> {
     let (rest, tok) = take(1usize)(tokens)?;
     if tok.tokens.is_empty() {
         Err(nom::Err::Error(nom::error::Error::new(
@@ -236,9 +219,7 @@ fn parse_number<'n, 'l: 'n>(tokens: TokenList<'n, 'l>) -> IResult<TokenList<'n, 
 }
 
 /// Parse an [`AstNode::NamedMatrix`].
-fn parse_named_matrix<'n, 'l: 'n>(
-    tokens: TokenList<'n, 'l>,
-) -> IResult<TokenList<'n, 'l>, AstNode<'n>> {
+fn parse_named_matrix<'l>(tokens: TokenList<'l>) -> IResult<TokenList<'l>, AstNode> {
     let (rest, tok) = take(1usize)(tokens)?;
     if tok.tokens.is_empty() {
         Err(nom::Err::Error(nom::error::Error::new(
@@ -246,8 +227,10 @@ fn parse_named_matrix<'n, 'l: 'n>(
             nom::error::ErrorKind::Tag,
         )))
     } else {
-        match tok.tokens[0] {
-            Token::NamedMatrix(matrix_name) => Ok((rest, AstNode::NamedMatrix(matrix_name))),
+        match &tok.tokens[0] {
+            Token::NamedMatrix(matrix_name) => {
+                Ok((rest, AstNode::NamedMatrix(matrix_name.clone())))
+            }
             _ => Err(nom::Err::Error(nom::error::Error::new(
                 tokens,
                 nom::error::ErrorKind::Tag,
@@ -392,6 +375,21 @@ mod tests {
                 AstNode::Exponent {
                     base: Box::new(AstNode::NamedMatrix(MatrixName::new("M"))),
                     power: Box::new(AstNode::Number(0.5))
+                }
+            ))
+        );
+
+        assert_eq!(
+            parse_multiply(TL::new(&[
+                T::Number(2.),
+                T::Star,
+                T::NamedMatrix(MatrixName::new("M")),
+            ])),
+            Ok((
+                TL::EMPTY,
+                AstNode::Multiply {
+                    left: Box::new(AstNode::Number(2.)),
+                    right: Box::new(AstNode::NamedMatrix(MatrixName::new("M")))
                 }
             ))
         );

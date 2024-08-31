@@ -20,19 +20,13 @@ pub enum TokeniseOrParseError<'i> {
 
     /// An error that occurred during parsing.
     #[error("{0}")]
-    ParseError(self::parser::ParseError<'i>),
+    ParseError(#[from] self::parser::ParseError),
 }
 
 // thiserror::Error has trouble deriving this with #[from]
 impl<'i> From<self::tokenise::TokeniseError<'i>> for TokeniseOrParseError<'i> {
     fn from(value: self::tokenise::TokeniseError<'i>) -> Self {
         Self::TokeniseError(value)
-    }
-}
-
-impl<'i> From<self::parser::ParseError<'i>> for TokeniseOrParseError<'i> {
-    fn from(value: self::parser::ParseError<'i>) -> Self {
-        Self::ParseError(value)
     }
 }
 

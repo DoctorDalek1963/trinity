@@ -1,5 +1,6 @@
 //! This module handles the internals of the matrices. Storing, handling, parsing, evaluating, etc.
 
+use core::fmt;
 use glam::f64::{DMat2, DMat3};
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -58,26 +59,40 @@ lazy_static! {
 ///     assert!(!MatrixName::is_valid(name), "'{name}' should be invalid");
 /// }
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct MatrixName<'n> {
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct MatrixName {
     /// The name of the matrix. Should be pre-validated by [`MatrixName::new`].
-    name: &'n str,
+    name: smol_str::SmolStr,
 }
 
-impl<'n> MatrixName<'n> {
+impl fmt::Display for MatrixName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name)
+    }
+}
+
+impl MatrixName {
     /// Create a new matrix name.
     ///
     /// In debug builds, this function will panic if the name is invalid (see [`Self::is_valid`]).
     /// In non-debug builds, this function will never panic, since the only code paths that should
     /// ever call [`MatrixName::new`] should only pass names that are already known to be valid.
-    pub fn new(name: &'n str) -> Self {
+    pub fn new(name: &str) -> Self {
         debug_assert!(Self::is_valid(name), "MatrixName must be valid");
-        Self { name }
+        Self { name: name.into() }
     }
 
     /// Check if the matrix name is valid. See the [`MatrixName`] docs for valid names.
     pub fn is_valid(name: &str) -> bool {
         FULL_MATRIX_NAME_REGEX.is_match(name)
+    }
+
+    /// Check if this matrix name is valid.
+    ///
+    /// Constructing a matrix name with [`MatrixName::new`] will automatically validate the name in
+    /// debug builds and panic if it's invalid.
+    pub fn self_is_valid(&self) -> bool {
+        Self::is_valid(self.name.as_str())
     }
 }
 
