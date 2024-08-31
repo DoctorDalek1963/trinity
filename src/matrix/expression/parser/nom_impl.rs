@@ -506,5 +506,45 @@ mod tests {
                 }
             ))
         );
+
+        // A + B ^ T * M ^ {-1} / 2
+        // A + ((B ^ T) * ((M ^ {-1}) / 2))
+        assert_eq!(
+            parse_expression(TL::new(&[
+                T::NamedMatrix(MatrixName::new("A")),
+                T::Plus,
+                T::NamedMatrix(MatrixName::new("B")),
+                T::Caret,
+                T::NamedMatrix(MatrixName::new("T")),
+                T::Star,
+                T::NamedMatrix(MatrixName::new("M")),
+                T::Caret,
+                T::OpenBrace,
+                T::Minus,
+                T::Number(1.),
+                T::CloseBrace,
+                T::Slash,
+                T::Number(2.),
+            ])),
+            Ok((
+                TL::EMPTY,
+                AstNode::Add {
+                    left: Box::new(AstNode::NamedMatrix(MatrixName::new("A"))),
+                    right: Box::new(AstNode::Multiply {
+                        left: Box::new(AstNode::Exponent {
+                            base: Box::new(AstNode::NamedMatrix(MatrixName::new("B"))),
+                            power: Box::new(AstNode::NamedMatrix(MatrixName::new("T")))
+                        }),
+                        right: Box::new(AstNode::Divide {
+                            left: Box::new(AstNode::Exponent {
+                                base: Box::new(AstNode::NamedMatrix(MatrixName::new("M"))),
+                                power: Box::new(AstNode::Negate(Box::new(AstNode::Number(1.))))
+                            }),
+                            right: Box::new(AstNode::Number(2.))
+                        })
+                    })
+                }
+            ))
+        );
     }
 }
