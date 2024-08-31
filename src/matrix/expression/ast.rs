@@ -194,6 +194,19 @@ impl NumberOrMatrix {
             (_, Self::Matrix(_)) => Err(EvaluationError::CannotRaiseToMatrix),
         }
     }
+
+    /// Try to transpose this thing.
+    pub fn try_transpose(self) -> Result<Self, EvaluationError> {
+        match self {
+            Self::Number(_) => Err(EvaluationError::CannotTransposeNumber),
+            Self::Matrix(Matrix2dOr3d::TwoD(matrix)) => {
+                Ok(Self::Matrix(Matrix2dOr3d::TwoD(matrix.transpose())))
+            }
+            Self::Matrix(Matrix2dOr3d::ThreeD(matrix)) => {
+                Ok(Self::Matrix(Matrix2dOr3d::ThreeD(matrix.transpose())))
+            }
+        }
+    }
 }
 
 /// An error which can be returned by [`AstNode::evaluate`].
@@ -224,6 +237,9 @@ pub enum EvaluationError {
     #[error("Cannot invert a singular (determinant 0) matrix")]
     CannotInvertSingularMatrix,
 
+    #[error("Cannot transpose a scalar number")]
+    CannotTransposeNumber,
+
     /// An error occurred when getting a value from the matrix map.
     #[error("{0}")]
     MatrixMapError(#[from] MatrixMapError),
@@ -233,23 +249,23 @@ impl<'n> AstNode<'n> {
     /// Evaluate this AST node by recursively evaulating whatever else needs to be evaluated.
     pub fn evaluate(self, map: &impl MatrixMap) -> Result<NumberOrMatrix, EvaluationError> {
         match self {
-            Self::Multiply { left, right } => Ok(NumberOrMatrix::try_mul(
-                left.evaluate(map)?,
-                right.evaluate(map)?,
-            )?),
-            Self::Divide { left, right } => Ok(NumberOrMatrix::try_div(
-                left.evaluate(map)?,
-                right.evaluate(map)?,
-            )?),
-            Self::Add { left, right } => Ok(NumberOrMatrix::try_add(
-                left.evaluate(map)?,
-                right.evaluate(map)?,
-            )?),
+            Self::Multiply { left, right } => {
+                NumberOrMatrix::try_mul(left.evaluate(map)?, right.evaluate(map)?)
+            }
+            Self::Divide { left, right } => {
+                NumberOrMatrix::try_div(left.evaluate(map)?, right.evaluate(map)?)
+            }
+            Self::Add { left, right } => {
+                NumberOrMatrix::try_add(left.evaluate(map)?, right.evaluate(map)?)
+            }
             Self::Negate(term) => Ok(NumberOrMatrix::negate(term.evaluate(map)?)),
-            Self::Exponent { base, power } => Ok(NumberOrMatrix::try_power(
-                base.evaluate(map)?,
-                power.evaluate(map)?,
-            )?),
+            Self::Exponent { base, power } => {
+                if *power == Self::NamedMatrix(MatrixName::new("T")) {
+                    NumberOrMatrix::try_transpose(base.evaluate(map)?)
+                } else {
+                    NumberOrMatrix::try_power(base.evaluate(map)?, power.evaluate(map)?)
+                }
+            }
             Self::Number(number) => Ok(NumberOrMatrix::Number(number)),
             Self::NamedMatrix(name) => Ok(NumberOrMatrix::Matrix(map.get(name)?.into())),
             Self::RotationMatrix { degrees } => Ok(NumberOrMatrix::Matrix(Matrix2dOr3d::TwoD(
@@ -743,6 +759,46 @@ mod tests {
                 DVec3::new(-7.5, -15., -10.),
             )))
         );
+
+        // [1 2; 3 4] ^ T
+        assert_relative_eq!(
+            AstNode::evaluate(
+                AstNode::Exponent {
+                    base: Box::new(AstNode::Anonymous2dMatrix(DMat2::from_cols(
+                        DVec2::new(1., 3.),
+                        DVec2::new(2., 4.)
+                    ))),
+                    power: Box::new(AstNode::NamedMatrix(MatrixName::new("T")))
+                },
+                &map2
+            )
+            .unwrap(),
+            NumberOrMatrix::Matrix(Matrix2dOr3d::TwoD(DMat2::from_cols(
+                DVec2::new(1., 2.),
+                DVec2::new(3., 4.)
+            )))
+        );
+
+        // [1 2 3; 4 5 6; 7 8 9] ^ T
+        assert_relative_eq!(
+            AstNode::evaluate(
+                AstNode::Exponent {
+                    base: Box::new(AstNode::Anonymous3dMatrix(DMat3::from_cols(
+                        DVec3::new(1., 4., 7.),
+                        DVec3::new(2., 5., 8.),
+                        DVec3::new(3., 6., 9.),
+                    ))),
+                    power: Box::new(AstNode::NamedMatrix(MatrixName::new("T")))
+                },
+                &map2
+            )
+            .unwrap(),
+            NumberOrMatrix::Matrix(Matrix2dOr3d::ThreeD(DMat3::from_cols(
+                DVec3::new(1., 2., 3.),
+                DVec3::new(4., 5., 6.),
+                DVec3::new(7., 8., 9.),
+            )))
+        );
     }
 
     #[test]
@@ -899,6 +955,21 @@ mod tests {
                 &map3,
             ),
             Err(EvaluationError::CannotRaiseToMatrix)
+        );
+
+        // (1 + 2) ^ T
+        assert_eq!(
+            AstNode::evaluate(
+                AstNode::Exponent {
+                    base: Box::new(AstNode::Add {
+                        left: Box::new(AstNode::Number(1.)),
+                        right: Box::new(AstNode::Number(2.))
+                    }),
+                    power: Box::new(AstNode::NamedMatrix(MatrixName::new("T")))
+                },
+                &map2
+            ),
+            Err(EvaluationError::CannotTransposeNumber)
         );
     }
 
