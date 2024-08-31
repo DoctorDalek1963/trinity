@@ -2,8 +2,8 @@
 //!
 //! We take an expression string, tokenise it with
 //! [`tokenise_expression`](self::tokenise::tokenise_expression), turn it into an AST with
-//! [`parse_tokens`](self::parser::parse_tokens) (see [`AstNode`](self::ast::AstNode)), and then
-//! [`evaulate`](self::ast::AstNode::evaluate) it.
+//! [`parse_tokens_into_ast`](self::parser::parse_tokens_into_ast) (see
+//! [`AstNode`](self::ast::AstNode)), and then [`evaulate`](self::ast::AstNode::evaluate) it.
 
 use thiserror::Error;
 

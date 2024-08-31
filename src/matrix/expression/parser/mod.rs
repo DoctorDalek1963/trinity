@@ -38,8 +38,8 @@ pub enum ParseError {
 }
 
 /// Parse a list of tokens into an AST.
-pub fn parse_tokens_into_ast<'l>(tokens: &'l [Token]) -> Result<AstNode, ParseError> {
-    let (token_list, ast) = self::nom_impl::parse_expression(self::tokens::TokenList::new(&tokens))
+pub fn parse_tokens_into_ast(tokens: &[Token]) -> Result<AstNode, ParseError> {
+    let (token_list, ast) = self::nom_impl::parse_expression(self::tokens::TokenList::new(tokens))
         .map_err(|err| err.map_input(|token_list| token_list.tokens.to_vec()))?;
 
     if !token_list.tokens.is_empty() {

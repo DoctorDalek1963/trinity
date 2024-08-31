@@ -65,7 +65,7 @@ impl<T: Into<Matrix2dOr3d> + Clone + Copy> MatrixMap for MatrixMapHashMap<T> {
 
     fn set(&mut self, name: MatrixName, value: Self::MatrixType) -> Result<(), MatrixMapError> {
         if name.self_is_valid() {
-            self.map.insert(name.into(), value);
+            self.map.insert(name, value);
             Ok(())
         } else {
             Err(MatrixMapError::InvalidName(name.name))
@@ -74,7 +74,7 @@ impl<T: Into<Matrix2dOr3d> + Clone + Copy> MatrixMap for MatrixMapHashMap<T> {
 
     fn get(&self, name: &MatrixName) -> Result<Self::MatrixType, MatrixMapError> {
         if MatrixName::is_valid(name.name.as_str()) {
-            match self.map.get(&name) {
+            match self.map.get(name) {
                 Some(matrix) => Ok(*matrix),
                 None => Err(MatrixMapError::NameNotDefined(name.to_owned())),
             }
