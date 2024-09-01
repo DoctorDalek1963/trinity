@@ -26,7 +26,20 @@ fn parse_addition(tokens: TokenList) -> IResult<TokenList, AstNode> {
                 },
             ))
         }
-        Err(_) => Ok((tokens, left)),
+        Err(_) => match consume_basic_token(Token::Minus)(tokens) {
+            Ok((tokens, ())) => {
+                let (tokens, right) = parse_addition(tokens)?;
+
+                Ok((
+                    tokens,
+                    AstNode::Add {
+                        left: Box::new(left),
+                        right: Box::new(AstNode::Negate(Box::new(right))),
+                    },
+                ))
+            }
+            Err(_) => Ok((tokens, left)),
+        },
     }
 }
 
@@ -427,6 +440,23 @@ mod tests {
                 AstNode::Add {
                     left: Box::new(AstNode::NamedMatrix(MatrixName::new("A"))),
                     right: Box::new(AstNode::NamedMatrix(MatrixName::new("B")))
+                }
+            ))
+        );
+
+        assert_eq!(
+            parse_addition(TL::new(&[
+                T::NamedMatrix(MatrixName::new("A")),
+                T::Minus,
+                T::NamedMatrix(MatrixName::new("B")),
+            ])),
+            Ok((
+                TL::EMPTY,
+                AstNode::Add {
+                    left: Box::new(AstNode::NamedMatrix(MatrixName::new("A"))),
+                    right: Box::new(AstNode::Negate(Box::new(AstNode::NamedMatrix(
+                        MatrixName::new("B")
+                    ))))
                 }
             ))
         );
