@@ -7,14 +7,6 @@ use nom::{branch::alt, bytes::complete::take, sequence::tuple, IResult, Parser};
 
 /// Parse a matrix expression from a list of tokens.
 pub fn parse_expression(tokens: TokenList) -> IResult<TokenList, AstNode> {
-    // alt((
-    //     parse_exponent,
-    //     parse_divide,
-    //     parse_multiply,
-    //     parse_addition,
-    //     parse_term,
-    // ))
-    // .parse(tokens)
     parse_addition(tokens)
 }
 
