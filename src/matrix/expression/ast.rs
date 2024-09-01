@@ -383,7 +383,7 @@ impl AstNode {
                 }
             }
             Self::Number(_) => vec![],
-            Self::NamedMatrix(matrix) => vec![*matrix],
+            Self::NamedMatrix(matrix) => vec![matrix.clone()],
             Self::RotationMatrix { degrees: _ } => vec![],
             Self::Anonymous2dMatrix(_) => vec![],
             Self::Anonymous3dMatrix(_) => vec![],
