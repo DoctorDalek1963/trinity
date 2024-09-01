@@ -1139,5 +1139,23 @@ mod tests {
             }),
             vec![MatrixName::new("T"), MatrixName::new("A")]
         );
+
+        // M / 2 + B ^ 2 * rot(90)
+        assert_eq!(
+            AstNode::named_matrices(&AstNode::Add {
+                left: Box::new(AstNode::Divide {
+                    left: Box::new(AstNode::NamedMatrix(MatrixName::new("M"))),
+                    right: Box::new(AstNode::Number(2.))
+                }),
+                right: Box::new(AstNode::Multiply {
+                    left: Box::new(AstNode::Exponent {
+                        base: Box::new(AstNode::NamedMatrix(MatrixName::new("B"))),
+                        power: Box::new(AstNode::Number(2.))
+                    }),
+                    right: Box::new(AstNode::RotationMatrix { degrees: 90. })
+                })
+            }),
+            vec![MatrixName::new("M"), MatrixName::new("B")]
+        );
     }
 }

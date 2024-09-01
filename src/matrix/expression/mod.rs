@@ -38,3 +38,179 @@ pub fn parse_expression_from_string(
     let ast = self::parser::parse_tokens_into_ast(&tokens)?;
     Ok(ast)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ast::AstNode;
+    use super::*;
+    use crate::matrix::MatrixName;
+
+    #[test]
+    fn parse_expression_from_string_success() {
+        assert_eq!(
+            parse_expression_from_string("A + B / C"),
+            Ok(AstNode::Add {
+                left: Box::new(AstNode::NamedMatrix(MatrixName::new("A"))),
+                right: Box::new(AstNode::Divide {
+                    left: Box::new(AstNode::NamedMatrix(MatrixName::new("B"))),
+                    right: Box::new(AstNode::NamedMatrix(MatrixName::new("C")))
+                })
+            })
+        );
+
+        assert_eq!(
+            parse_expression_from_string("2 - 1"),
+            Ok(AstNode::Add {
+                left: Box::new(AstNode::Number(2.)),
+                right: Box::new(AstNode::Negate(Box::new(AstNode::Number(1.))))
+            })
+        );
+
+        assert_eq!(
+            parse_expression_from_string("2 * -1"),
+            Ok(AstNode::Multiply {
+                left: Box::new(AstNode::Number(2.)),
+                right: Box::new(AstNode::Negate(Box::new(AstNode::Number(1.))))
+            })
+        );
+
+        assert_eq!(
+            parse_expression_from_string("-1"),
+            Ok(AstNode::Negate(Box::new(AstNode::Number(1.))))
+        );
+
+        assert_eq!(
+            parse_expression_from_string("A + B ^ T * M ^ {-1} / 2"),
+            Ok(AstNode::Add {
+                left: Box::new(AstNode::NamedMatrix(MatrixName::new("A"))),
+                right: Box::new(AstNode::Multiply {
+                    left: Box::new(AstNode::Exponent {
+                        base: Box::new(AstNode::NamedMatrix(MatrixName::new("B"))),
+                        power: Box::new(AstNode::NamedMatrix(MatrixName::new("T")))
+                    }),
+                    right: Box::new(AstNode::Divide {
+                        left: Box::new(AstNode::Exponent {
+                            base: Box::new(AstNode::NamedMatrix(MatrixName::new("M"))),
+                            power: Box::new(AstNode::Negate(Box::new(AstNode::Number(1.))))
+                        }),
+                        right: Box::new(AstNode::Number(2.))
+                    })
+                })
+            })
+        );
+
+        assert_eq!(
+            parse_expression_from_string("(2*M + 3*X^-1) * (D/3/2)"),
+            Ok(AstNode::Multiply {
+                left: Box::new(AstNode::Add {
+                    left: Box::new(AstNode::Multiply {
+                        left: Box::new(AstNode::Number(2.)),
+                        right: Box::new(AstNode::NamedMatrix(MatrixName::new("M")))
+                    }),
+                    right: Box::new(AstNode::Multiply {
+                        left: Box::new(AstNode::Number(3.)),
+                        right: Box::new(AstNode::Exponent {
+                            base: Box::new(AstNode::NamedMatrix(MatrixName::new("X"))),
+                            power: Box::new(AstNode::Negate(Box::new(AstNode::Number(1.))))
+                        })
+                    })
+                }),
+                right: Box::new(AstNode::Divide {
+                    left: Box::new(AstNode::NamedMatrix(MatrixName::new("D"))),
+                    right: Box::new(AstNode::Divide {
+                        left: Box::new(AstNode::Number(3.)),
+                        right: Box::new(AstNode::Number(2.))
+                    })
+                })
+            })
+        );
+
+        assert_eq!(
+            parse_expression_from_string("M / 2 + B ^ 2 * rot(90)"),
+            Ok(AstNode::Add {
+                left: Box::new(AstNode::Divide {
+                    left: Box::new(AstNode::NamedMatrix(MatrixName::new("M"))),
+                    right: Box::new(AstNode::Number(2.))
+                }),
+                right: Box::new(AstNode::Multiply {
+                    left: Box::new(AstNode::Exponent {
+                        base: Box::new(AstNode::NamedMatrix(MatrixName::new("B"))),
+                        power: Box::new(AstNode::Number(2.))
+                    }),
+                    right: Box::new(AstNode::RotationMatrix { degrees: 90. })
+                })
+            })
+        );
+    }
+
+    #[test]
+    fn parse_expression_from_string_failure() {
+        use super::{
+            parser::ParseError,
+            tokenise::{Token, TokeniseError},
+        };
+
+        assert_eq!(
+            parse_expression_from_string(""),
+            Err(TokeniseOrParseError::TokeniseError(
+                TokeniseError::NomError {
+                    nom_error: nom::Err::Error(nom::error::Error::new(
+                        "",
+                        nom::error::ErrorKind::MultiSpace
+                    ))
+                }
+            ))
+        );
+
+        assert_eq!(
+            parse_expression_from_string("2 @ M"),
+            Err(TokeniseOrParseError::TokeniseError(
+                TokeniseError::UnconsumedInput("@ M")
+            ))
+        );
+
+        assert_eq!(
+            parse_expression_from_string("AB"),
+            Err(TokeniseOrParseError::ParseError(
+                ParseError::UnconsumedInput(vec![Token::NamedMatrix(MatrixName::new("B"))])
+            ))
+        );
+
+        assert_eq!(
+            parse_expression_from_string("C++"),
+            Err(TokeniseOrParseError::ParseError(ParseError::NomError(
+                nom::Err::Error(nom::error::Error::new(
+                    vec![Token::Plus],
+                    nom::error::ErrorKind::Tag
+                ))
+            )))
+        );
+
+        assert_eq!(
+            parse_expression_from_string("[1 2 3 4]"),
+            Err(TokeniseOrParseError::ParseError(ParseError::NomError(
+                nom::Err::Error(nom::error::Error::new(
+                    vec![
+                        Token::OpenSquareBracket,
+                        Token::Number(1.0),
+                        Token::Number(2.0),
+                        Token::Number(3.0),
+                        Token::Number(4.0),
+                        Token::CloseSquareBracket
+                    ],
+                    nom::error::ErrorKind::Tag
+                ))
+            )))
+        );
+
+        assert_eq!(
+            parse_expression_from_string("[1"),
+            Err(TokeniseOrParseError::ParseError(ParseError::NomError(
+                nom::Err::Error(nom::error::Error::new(
+                    vec![Token::OpenSquareBracket, Token::Number(1.0),],
+                    nom::error::ErrorKind::Tag
+                ))
+            )))
+        );
+    }
+}
