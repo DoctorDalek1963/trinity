@@ -16,11 +16,11 @@ pub mod prelude {
 pub enum MatrixMapError {
     /// The matrix has an invalide name. See [`MatrixName`].
     #[error("Invalid name for matrix: \"{0}\"")]
-    InvalidName(String),
+    InvalidName(smol_str::SmolStr),
 
     /// The matrix with this name is not defined in the map.
     #[error("Matrix named \"{0}\" is not defined")]
-    NameNotDefined(String),
+    NameNotDefined(MatrixName),
 }
 
 /// A map from names to defined matrices.
@@ -35,17 +35,17 @@ pub trait MatrixMap {
     ///
     /// This method will blindly overwrite the old value if a matrix with this name already exists.
     /// Use [`MatrixMap::get`] first to check.
-    fn set(&mut self, name: MatrixName<'_>, value: Self::MatrixType) -> Result<(), MatrixMapError>;
+    fn set(&mut self, name: MatrixName, value: Self::MatrixType) -> Result<(), MatrixMapError>;
 
     /// Get the named matrix from the map, if it exists.
-    fn get(&self, name: MatrixName<'_>) -> Result<Self::MatrixType, MatrixMapError>;
+    fn get(&self, name: &MatrixName) -> Result<Self::MatrixType, MatrixMapError>;
 }
 
 /// A [`MatrixMap`] for some generic type `T`.
 #[derive(Clone, Debug, PartialEq)]
-pub struct MatrixMapHashMap<T> {
+pub struct MatrixMapHashMap<T: Into<Matrix2dOr3d> + Clone + Copy> {
     /// The [`HashMap`] backing this implementation.
-    map: HashMap<String, T>,
+    map: HashMap<MatrixName, T>,
 }
 
 /// A [`MatrixMap`] for 2D matrices.
@@ -63,27 +63,23 @@ impl<T: Into<Matrix2dOr3d> + Clone + Copy> MatrixMap for MatrixMapHashMap<T> {
         }
     }
 
-    fn set(
-        &mut self,
-        MatrixName { name }: MatrixName,
-        value: Self::MatrixType,
-    ) -> Result<(), MatrixMapError> {
-        if MatrixName::is_valid(name) {
-            self.map.insert(name.into(), value);
+    fn set(&mut self, name: MatrixName, value: Self::MatrixType) -> Result<(), MatrixMapError> {
+        if name.self_is_valid() {
+            self.map.insert(name, value);
             Ok(())
         } else {
-            Err(MatrixMapError::InvalidName(name.to_owned()))
+            Err(MatrixMapError::InvalidName(name.name))
         }
     }
 
-    fn get(&self, MatrixName { name }: MatrixName) -> Result<Self::MatrixType, MatrixMapError> {
-        if MatrixName::is_valid(name) {
+    fn get(&self, name: &MatrixName) -> Result<Self::MatrixType, MatrixMapError> {
+        if MatrixName::is_valid(name.name.as_str()) {
             match self.map.get(name) {
                 Some(matrix) => Ok(*matrix),
                 None => Err(MatrixMapError::NameNotDefined(name.to_owned())),
             }
         } else {
-            Err(MatrixMapError::InvalidName(name.to_owned()))
+            Err(MatrixMapError::InvalidName(name.name.clone()))
         }
     }
 }
@@ -107,40 +103,40 @@ mod tests {
         let n1name = MatrixName::new("N_one");
         let n2name = MatrixName::new("N_two");
 
-        assert_eq!(map2.set(m1name, m1), Ok(()));
-        assert_eq!(map2.set(m2name, m2), Ok(()));
-        assert_eq!(map3.set(n1name, n1), Ok(()));
-        assert_eq!(map3.set(n2name, n2), Ok(()));
+        assert_eq!(map2.set(m1name.clone(), m1), Ok(()));
+        assert_eq!(map2.set(m2name.clone(), m2), Ok(()));
+        assert_eq!(map3.set(n1name.clone(), n1), Ok(()));
+        assert_eq!(map3.set(n2name.clone(), n2), Ok(()));
 
         assert_eq!(
-            map2.set(MatrixName { name: "m" }, m1),
-            Err(MatrixMapError::InvalidName("m".to_string()))
+            map2.set(MatrixName { name: "m".into() }, m1),
+            Err(MatrixMapError::InvalidName("m".into()))
         );
         assert_eq!(
-            map3.set(MatrixName { name: "x" }, n1),
-            Err(MatrixMapError::InvalidName("x".to_string()))
+            map3.set(MatrixName { name: "x".into() }, n1),
+            Err(MatrixMapError::InvalidName("x".into()))
         );
 
-        assert_eq!(map2.get(m1name), Ok(m1));
-        assert_eq!(map2.get(m2name), Ok(m2));
-        assert_eq!(map3.get(n1name), Ok(n1));
-        assert_eq!(map3.get(n2name), Ok(n2));
+        assert_eq!(map2.get(&m1name), Ok(m1));
+        assert_eq!(map2.get(&m2name), Ok(m2));
+        assert_eq!(map3.get(&n1name), Ok(n1));
+        assert_eq!(map3.get(&n2name), Ok(n2));
 
         assert_eq!(
-            map2.get(MatrixName::new("X")),
-            Err(MatrixMapError::NameNotDefined("X".to_string()))
+            map2.get(&MatrixName::new("X")),
+            Err(MatrixMapError::NameNotDefined(MatrixName::new("X")))
         );
         assert_eq!(
-            map2.get(MatrixName { name: "y" }),
-            Err(MatrixMapError::InvalidName("y".to_string()))
+            map2.get(&MatrixName { name: "y".into() }),
+            Err(MatrixMapError::InvalidName("y".into()))
         );
         assert_eq!(
-            map3.get(MatrixName::new("X")),
-            Err(MatrixMapError::NameNotDefined("X".to_string()))
+            map3.get(&MatrixName::new("X")),
+            Err(MatrixMapError::NameNotDefined(MatrixName::new("X")))
         );
         assert_eq!(
-            map3.get(MatrixName { name: "y" }),
-            Err(MatrixMapError::InvalidName("y".to_string()))
+            map3.get(&MatrixName { name: "y".into() }),
+            Err(MatrixMapError::InvalidName("y".into()))
         );
     }
 }

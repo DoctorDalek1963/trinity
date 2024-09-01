@@ -9,10 +9,10 @@ use nom_regex::str::re_find;
 use thiserror::Error;
 
 /// A single token in the token list that results from tokenisation.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Token<'n> {
+#[derive(Clone, Debug, PartialEq)]
+pub enum Token {
     /// A named matrix. See [`MatrixName`].
-    NamedMatrix(MatrixName<'n>),
+    NamedMatrix(MatrixName),
 
     /// A numeric literal.
     Number(f64),
@@ -62,21 +62,21 @@ type NomError<'i> = ::nom::Err<::nom::error::Error<&'i str>>;
 
 /// An error that occurred during tokenisation.
 #[derive(Debug, Error, PartialEq)]
-pub enum TokeniseError<'n> {
+pub enum TokeniseError<'i> {
     /// An error created by [`nom`].
     #[error("Internal nom error: {nom_error:?}")]
     NomError {
         /// The internal error from [`nom`].
-        nom_error: NomError<'n>,
+        nom_error: NomError<'i>,
     },
 
-    /// Some of the input was left unparsed.
+    /// Some of the input was left un-tokenised.
     #[error("Unconsumed input after tokenising expression: '{0}'")]
-    UnconsumedInput(&'n str),
+    UnconsumedInput(&'i str),
 }
 
-impl<'n> From<NomError<'n>> for TokeniseError<'n> {
-    fn from(nom_error: NomError<'n>) -> Self {
+impl<'i> From<NomError<'i>> for TokeniseError<'i> {
+    fn from(nom_error: NomError<'i>) -> Self {
         TokeniseError::NomError { nom_error }
     }
 }
@@ -109,7 +109,7 @@ impl<'n> From<NomError<'n>> for TokeniseError<'n> {
 /// );
 /// ```
 #[allow(clippy::needless_lifetimes)]
-pub fn tokenise_expression<'n>(expression: &'n str) -> Result<Vec<Token<'n>>, TokeniseError<'n>> {
+pub fn tokenise_expression<'i>(expression: &'i str) -> Result<Vec<Token>, TokeniseError<'i>> {
     let (input, opt_tokens) = many1(alt((
         tokenise_named_matrix.map(Some),
         tokenise_rot.map(Some),
@@ -128,10 +128,7 @@ pub fn tokenise_expression<'n>(expression: &'n str) -> Result<Vec<Token<'n>>, To
 /// Tokenise a single named matrix from the expression.
 fn tokenise_named_matrix(input: &str) -> IResult<&str, Token> {
     re_find(LEADING_MATRIX_NAME_REGEX.clone())
-        .map(|name| {
-            debug_assert!(!name.is_empty() && name.starts_with(|c: char| c.is_uppercase()));
-            Token::NamedMatrix(MatrixName::new(name))
-        })
+        .map(|name| Token::NamedMatrix(MatrixName::new(name)))
         .parse(input)
 }
 
