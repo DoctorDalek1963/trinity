@@ -21,3 +21,10 @@ path = "fuzz_targets/tokenise_expression.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "parse_expression_from_string"
+path = "fuzz_targets/parse_expression_from_string.rs"
+test = false
+doc = false
+bench = false
