@@ -352,6 +352,43 @@ impl<'n> AstNode<'n> {
             Self::Anonymous3dMatrix(DMat3 { x_axis, y_axis, z_axis }) => format!("[{} {} {}; {} {} {}; {} {} {}]", x_axis.x, y_axis.x, z_axis.x, x_axis.y, y_axis.y, z_axis.y, x_axis.z, y_axis.z, z_axis.z),
         }
     }
+
+    /// Get all the named matrices that are referenced in this AST.
+    pub fn named_matrices(&self) -> Vec<MatrixName> {
+        match self {
+            Self::Multiply { left, right } => left
+                .named_matrices()
+                .into_iter()
+                .chain(right.named_matrices())
+                .collect(),
+            Self::Divide { left, right } => left
+                .named_matrices()
+                .into_iter()
+                .chain(right.named_matrices())
+                .collect(),
+            Self::Add { left, right } => left
+                .named_matrices()
+                .into_iter()
+                .chain(right.named_matrices())
+                .collect(),
+            Self::Negate(term) => term.named_matrices(),
+            Self::Exponent { base, power } => {
+                if **power == AstNode::NamedMatrix(MatrixName::new("T")) {
+                    base.named_matrices()
+                } else {
+                    base.named_matrices()
+                        .into_iter()
+                        .chain(power.named_matrices())
+                        .collect()
+                }
+            }
+            Self::Number(_) => vec![],
+            Self::NamedMatrix(matrix) => vec![*matrix],
+            Self::RotationMatrix { degrees: _ } => vec![],
+            Self::Anonymous2dMatrix(_) => vec![],
+            Self::Anonymous3dMatrix(_) => vec![],
+        }
+    }
 }
 
 #[cfg(test)]
@@ -1069,6 +1106,38 @@ mod tests {
                 right: Box::new(AstNode::Negate(Box::new(AstNode::Number(3.))))
             }),
             "2 + (-3)"
+        );
+    }
+
+    #[test]
+    fn ast_node_named_matrices() {
+        assert_eq!(AstNode::named_matrices(&AstNode::Number(1.)), vec![]);
+
+        // A + ([1 0; 0 1] ^ T) * (-[1 0 0; 0 1 0; 0 0 1])
+        // The only named matrix should be A since the T is part of a transposition
+        assert_eq!(
+            AstNode::named_matrices(&AstNode::Add {
+                left: Box::new(AstNode::NamedMatrix(MatrixName::new("A"))),
+                right: Box::new(AstNode::Multiply {
+                    left: Box::new(AstNode::Exponent {
+                        base: Box::new(AstNode::Anonymous2dMatrix(DMat2::IDENTITY)),
+                        power: Box::new(AstNode::NamedMatrix(MatrixName::new("T")))
+                    }),
+                    right: Box::new(AstNode::Negate(Box::new(AstNode::Anonymous3dMatrix(
+                        DMat3::IDENTITY
+                    ))))
+                })
+            }),
+            vec![MatrixName::new("A")]
+        );
+
+        // T + A
+        assert_eq!(
+            AstNode::named_matrices(&AstNode::Add {
+                left: Box::new(AstNode::NamedMatrix(MatrixName::new("T"))),
+                right: Box::new(AstNode::NamedMatrix(MatrixName::new("A"))),
+            }),
+            vec![MatrixName::new("T"), MatrixName::new("A")]
         );
     }
 }
