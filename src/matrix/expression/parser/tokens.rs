@@ -2,7 +2,7 @@
 //! [`nom`] parsers.
 
 use crate::matrix::expression::tokenise::Token;
-use nom::{InputIter, InputLength, InputTake};
+use nom::{InputIter, InputTake};
 use std::iter::Enumerate;
 
 /// A list of tokens.
@@ -24,12 +24,6 @@ impl<'l> TokenList<'l> {
     #[inline]
     pub fn new<'t: 'l>(tokens: &'t [Token]) -> Self {
         Self { tokens }
-    }
-}
-
-impl<'l> InputLength for TokenList<'l> {
-    fn input_len(&self) -> usize {
-        self.tokens.len()
     }
 }
 
@@ -74,38 +68,3 @@ impl<'l> InputIter for TokenList<'l> {
         }
     }
 }
-
-// impl<'l> Compare<TokenList<'l>> for TokenList<'l> {
-//     fn compare(&self, other: Self) -> nom::CompareResult {
-//         let min_length = self.tokens.len().min(other.tokens.len());
-//         if &self.tokens[0..min_length] == &other.tokens[0..min_length] {
-//             if self.tokens == other.tokens {
-//                 nom::CompareResult::Ok
-//             } else {
-//                 nom::CompareResult::Incomplete
-//             }
-//         } else {
-//             nom::CompareResult::Error
-//         }
-//     }
-//
-//     fn compare_no_case(&self, t: Self) -> nom::CompareResult {
-//         self.compare(t)
-//     }
-// }
-
-// impl InputLength for Token {
-//     fn input_len(&self) -> usize {
-//         1
-//     }
-// }
-//
-// impl InputTake for Token {
-//     fn take(&self, _count: usize) -> Self {
-//         *self
-//     }
-//
-//     fn take_split(&self, _count: usize) -> (Self, Self) {
-//         (*self, *self)
-//     }
-// }
