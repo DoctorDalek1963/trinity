@@ -3,5 +3,10 @@
 
 #![warn(missing_docs, clippy::missing_docs_in_private_items)]
 
+pub mod bevy;
 pub mod math;
 pub mod matrix;
+
+fn main() {
+    self::bevy::start_bevy();
+}

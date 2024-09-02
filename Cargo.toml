@@ -7,8 +7,13 @@ repository = "https://github.com/DoctorDalek1963/winter-wonderlights"
 license = "AGPL-3.0-only"
 publish = false
 
+[features]
+default = []
+dev_tools = ["bevy/bevy_dev_tools"]
+
 [dependencies]
 approx = "0.5.1"
+bevy = "0.14.1"
 glam = "0.29.0"
 lazy_static = "1.5.0"
 mutants = "0.0.3"

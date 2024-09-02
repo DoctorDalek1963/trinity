@@ -48,9 +48,33 @@
         commonArgs = {
           inherit src;
           strictDeps = true;
+          buildInputs = bevyDeps;
+          nativeBuildInputs = bevyDeps;
         };
 
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
+
+        bevyDeps = with pkgs; [
+          pkg-config
+          alsa-lib
+          udev
+        ];
+
+        nativeBevyDeps =
+          bevyDeps
+          ++ (with pkgs; [
+            # libGL
+            libxkbcommon
+            # mesa
+            vulkan-loader
+            # vulkan-validation-layers
+            xorg.libX11
+            # xorg.libxcb
+            xorg.libXcursor
+            xorg.libXi
+            xorg.libXrandr
+            wayland
+          ]);
       in rec {
         devShells.default = pkgs.mkShell {
           nativeBuildInputs =
@@ -60,6 +84,7 @@
                 extensions = ["rust-analyzer" "rust-src" "rust-std"];
               })
             ]
+            ++ nativeBevyDeps
             ++ (with pkgs; [
               cargo-fuzz
               cargo-mutants
@@ -71,6 +96,7 @@
           shellHook = ''
             ${config.pre-commit.installationScript}
             export RUST_BACKTRACE=1
+            export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath nativeBevyDeps}:$LD_LIBRARY_PATH"
           '';
         };
 
@@ -123,15 +149,33 @@
               });
           };
 
-        packages = rec {
-          default = trinity;
-
-          trinity = craneLib.buildPackage (commonArgs
-            // {
-              pname = "trinity";
-              inherit cargoArtifacts;
+        packages = {
+          trinity-native = let
+            baseBin = craneLib.buildPackage (commonArgs
+              // {
+                pname = "trinity-native-base";
+                inherit cargoArtifacts;
+                inherit (craneLib.crateNameFromCargoToml {inherit src;}) version;
+                nativeBuildInputs = nativeBevyDeps;
+              });
+          in
+            pkgs.stdenv.mkDerivation {
+              pname = "trinity-native";
               inherit (craneLib.crateNameFromCargoToml {inherit src;}) version;
-            });
+
+              dontUnpack = true;
+              dontBuild = true;
+
+              nativeBuildInputs = [pkgs.makeWrapper];
+
+              installPhase = ''
+                mkdir -p $out/bin
+                cp ${baseBin}/bin/trinity $out/bin/trinity
+                wrapProgram $out/bin/trinity --prefix LD_LIBRARY_PATH : "${pkgs.lib.makeLibraryPath nativeBevyDeps}"
+              '';
+
+              meta.mainProgram = "trinity";
+            };
 
           doc = craneLib.cargoDoc (commonArgs
             // {
