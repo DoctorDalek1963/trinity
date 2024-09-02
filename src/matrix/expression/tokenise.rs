@@ -233,7 +233,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tokenise_expression_success() {
+    fn tokenise_expression_success() {
         use super::Token as T;
 
         assert_eq!(
@@ -336,7 +336,80 @@ mod tests {
     }
 
     #[test]
-    fn test_tokenise_expression_failure() {
+    fn tokenise_expression_abc() {
+        assert_eq!(
+            tokenise_expression("ABC"),
+            Ok(vec![
+                Token::NamedMatrix(MatrixName::new("A")),
+                Token::NamedMatrix(MatrixName::new("B")),
+                Token::NamedMatrix(MatrixName::new("C"))
+            ])
+        );
+
+        assert_eq!(
+            tokenise_expression("ABc"),
+            Ok(vec![
+                Token::NamedMatrix(MatrixName::new("A")),
+                Token::NamedMatrix(MatrixName::new("Bc")),
+            ])
+        );
+
+        assert_eq!(
+            tokenise_expression("AbC"),
+            Ok(vec![
+                Token::NamedMatrix(MatrixName::new("Ab")),
+                Token::NamedMatrix(MatrixName::new("C"))
+            ])
+        );
+
+        assert_eq!(
+            tokenise_expression("Abc"),
+            Ok(vec![Token::NamedMatrix(MatrixName::new("Abc"))])
+        );
+
+        assert_eq!(
+            tokenise_expression("aBC"),
+            Err(TokeniseError::NomError {
+                nom_error: nom::Err::Error(nom::error::Error::new(
+                    "aBC",
+                    nom::error::ErrorKind::MultiSpace
+                ))
+            })
+        );
+
+        assert_eq!(
+            tokenise_expression("aBc"),
+            Err(TokeniseError::NomError {
+                nom_error: nom::Err::Error(nom::error::Error::new(
+                    "aBc",
+                    nom::error::ErrorKind::MultiSpace
+                ))
+            })
+        );
+
+        assert_eq!(
+            tokenise_expression("abC"),
+            Err(TokeniseError::NomError {
+                nom_error: nom::Err::Error(nom::error::Error::new(
+                    "abC",
+                    nom::error::ErrorKind::MultiSpace
+                ))
+            })
+        );
+
+        assert_eq!(
+            tokenise_expression("abc"),
+            Err(TokeniseError::NomError {
+                nom_error: nom::Err::Error(nom::error::Error::new(
+                    "abc",
+                    nom::error::ErrorKind::MultiSpace
+                ))
+            })
+        );
+    }
+
+    #[test]
+    fn tokenise_expression_failure() {
         assert_eq!(
             tokenise_expression("@"),
             Err(TokeniseError::NomError {

@@ -59,7 +59,25 @@ fn parse_multiply(tokens: TokenList) -> IResult<TokenList, AstNode> {
                 },
             ))
         }
-        Err(_) => Ok((tokens, left)),
+        Err(_) => {
+            // No star token means that this is the implicit multiplication branch
+            // We want to check if the next token is a minus because `2 - 1` should be a
+            // subtraction, but would otherwise parse as `2 * (-1)`
+            if consume_basic_token(Token::Minus)(tokens).is_ok() {
+                Ok((tokens, left))
+            } else {
+                match parse_multiply(tokens) {
+                    Ok((tokens, right)) => Ok((
+                        tokens,
+                        AstNode::Multiply {
+                            left: Box::new(left),
+                            right: Box::new(right),
+                        },
+                    )),
+                    Err(_) => Ok((tokens, left)),
+                }
+            }
+        }
     }
 }
 

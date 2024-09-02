@@ -141,6 +141,136 @@ mod tests {
                 })
             })
         );
+
+        assert_eq!(
+            parse_expression_from_string("AB"),
+            Ok(AstNode::Multiply {
+                left: Box::new(AstNode::NamedMatrix(MatrixName::new("A"))),
+                right: Box::new(AstNode::NamedMatrix(MatrixName::new("B")))
+            })
+        );
+
+        assert_eq!(
+            parse_expression_from_string("2ABc"),
+            Ok(AstNode::Multiply {
+                left: Box::new(AstNode::Number(2.)),
+                right: Box::new(AstNode::Multiply {
+                    left: Box::new(AstNode::NamedMatrix(MatrixName::new("A"))),
+                    right: Box::new(AstNode::NamedMatrix(MatrixName::new("Bc")))
+                })
+            })
+        );
+
+        assert_eq!(
+            parse_expression_from_string("3M - 2X"),
+            Ok(AstNode::Add {
+                left: Box::new(AstNode::Multiply {
+                    left: Box::new(AstNode::Number(3.)),
+                    right: Box::new(AstNode::NamedMatrix(MatrixName::new("M")))
+                }),
+                right: Box::new(AstNode::Negate(Box::new(AstNode::Multiply {
+                    left: Box::new(AstNode::Number(2.)),
+                    right: Box::new(AstNode::NamedMatrix(MatrixName::new("X")))
+                })))
+            })
+        );
+
+        assert_eq!(
+            parse_expression_from_string("3M(-2X)"),
+            Ok(AstNode::Multiply {
+                left: Box::new(AstNode::Number(3.)),
+                right: Box::new(AstNode::Multiply {
+                    left: Box::new(AstNode::NamedMatrix(MatrixName::new("M"))),
+                    right: Box::new(AstNode::Multiply {
+                        left: Box::new(AstNode::Negate(Box::new(AstNode::Number(2.)))),
+                        right: Box::new(AstNode::NamedMatrix(MatrixName::new("X")))
+                    })
+                })
+            })
+        );
+    }
+
+    #[test]
+    fn parse_expression_from_string_abc() {
+        assert_eq!(
+            parse_expression_from_string("ABC"),
+            Ok(AstNode::Multiply {
+                left: Box::new(AstNode::NamedMatrix(MatrixName::new("A"))),
+                right: Box::new(AstNode::Multiply {
+                    left: Box::new(AstNode::NamedMatrix(MatrixName::new("B"))),
+                    right: Box::new(AstNode::NamedMatrix(MatrixName::new("C")))
+                })
+            })
+        );
+
+        assert_eq!(
+            parse_expression_from_string("ABc"),
+            Ok(AstNode::Multiply {
+                left: Box::new(AstNode::NamedMatrix(MatrixName::new("A"))),
+                right: Box::new(AstNode::NamedMatrix(MatrixName::new("Bc")))
+            })
+        );
+
+        assert_eq!(
+            parse_expression_from_string("AbC"),
+            Ok(AstNode::Multiply {
+                left: Box::new(AstNode::NamedMatrix(MatrixName::new("Ab"))),
+                right: Box::new(AstNode::NamedMatrix(MatrixName::new("C")))
+            })
+        );
+
+        assert_eq!(
+            parse_expression_from_string("Abc"),
+            Ok(AstNode::NamedMatrix(MatrixName::new("Abc")))
+        );
+
+        assert_eq!(
+            parse_expression_from_string("aBC"),
+            Err(TokeniseOrParseError::TokeniseError(
+                tokenise::TokeniseError::NomError {
+                    nom_error: nom::Err::Error(nom::error::Error::new(
+                        "aBC",
+                        nom::error::ErrorKind::MultiSpace
+                    ))
+                }
+            ))
+        );
+
+        assert_eq!(
+            parse_expression_from_string("aBc"),
+            Err(TokeniseOrParseError::TokeniseError(
+                tokenise::TokeniseError::NomError {
+                    nom_error: nom::Err::Error(nom::error::Error::new(
+                        "aBc",
+                        nom::error::ErrorKind::MultiSpace
+                    ))
+                }
+            ))
+        );
+
+        assert_eq!(
+            parse_expression_from_string("abC"),
+            Err(TokeniseOrParseError::TokeniseError(
+                tokenise::TokeniseError::NomError {
+                    nom_error: nom::Err::Error(nom::error::Error::new(
+                        "abC",
+                        nom::error::ErrorKind::MultiSpace
+                    ))
+                }
+            ))
+        );
+
+        assert_eq!(
+            parse_expression_from_string("abc"),
+            Err(TokeniseOrParseError::TokeniseError(
+                tokenise::TokeniseError::NomError {
+                    nom_error: nom::Err::Error(nom::error::Error::new(
+                        "abc",
+                        nom::error::ErrorKind::MultiSpace
+                    ))
+                }
+            ))
+        );
     }
 
     #[test]
@@ -166,13 +296,6 @@ mod tests {
             parse_expression_from_string("2 @ M"),
             Err(TokeniseOrParseError::TokeniseError(
                 TokeniseError::UnconsumedInput("@ M")
-            ))
-        );
-
-        assert_eq!(
-            parse_expression_from_string("AB"),
-            Err(TokeniseOrParseError::ParseError(
-                ParseError::UnconsumedInput(vec![Token::NamedMatrix(MatrixName::new("B"))])
             ))
         );
 
