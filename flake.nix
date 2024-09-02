@@ -56,6 +56,7 @@
           nativeBuildInputs =
             [
               (rustToolchainNightlyWith {
+                targets = ["wasm32-unknown-unknown"];
                 extensions = ["rust-analyzer" "rust-src" "rust-std"];
               })
             ]
