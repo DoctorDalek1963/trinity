@@ -7,6 +7,6 @@ pub mod bevy;
 pub mod math;
 pub mod matrix;
 
-fn main() {
-    self::bevy::start_bevy();
+fn main() -> ::bevy::prelude::AppExit {
+    self::bevy::run_bevy()
 }

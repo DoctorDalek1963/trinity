@@ -1,8 +1,8 @@
 //! This module handles everything to do with Bevy, the game engine used by Trinity.
 
-mod entrypoint;
+mod setup;
 
-pub use self::entrypoint::start_bevy;
+pub use self::setup::run_bevy;
 
 use bevy::prelude::Component;
 

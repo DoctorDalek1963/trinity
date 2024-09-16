@@ -4,7 +4,7 @@ use super::{IsBasisVectorI, IsBasisVectorJ};
 use bevy::prelude::*;
 
 /// Start Bevy and setup everything needed for Trinity's graphics.
-pub fn start_bevy() {
+pub fn run_bevy() -> AppExit {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins).add_systems(Startup, setup);
 
@@ -14,7 +14,7 @@ pub fn start_bevy() {
             .add_systems(Update, toggle_overlay);
     }
 
-    app.run();
+    app.run()
 }
 
 /// Setup everything we need for Bevy.
