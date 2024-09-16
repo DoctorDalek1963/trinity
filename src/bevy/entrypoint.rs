@@ -1,17 +1,12 @@
 //! This module provides [`start_bevy`], the entrypoint for Trinity's Bevy runtime.
 
-use bevy::{prelude::*, winit::WinitSettings};
+use super::{IsBasisVectorI, IsBasisVectorJ};
+use bevy::prelude::*;
 
 /// Start Bevy and setup everything needed for Trinity's graphics.
 pub fn start_bevy() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins).add_systems(Startup, setup);
-
-    #[cfg(not(target_family = "wasm"))]
-    {
-        // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
-        app.insert_resource(WinitSettings::desktop_app());
-    }
 
     #[cfg(feature = "dev_tools")]
     {
@@ -23,11 +18,46 @@ pub fn start_bevy() {
 }
 
 /// Setup everything we need for Bevy.
-fn setup(
-    mut commands: Commands,
-    // asset_server: Res<AssetServer>
-) {
-    commands.spawn((Camera2dBundle::default(), IsDefaultUiCamera));
+fn setup(mut commands: Commands) {
+    // Spawn the camera. We set the projection.scale to 1/100 so that all the entities can use the
+    // actual values given by the matrices and whatnot, so that we don't have to scale up and down
+    // between calculating matrix stuff and actually rendering it.
+    commands.spawn(Camera2dBundle {
+        projection: OrthographicProjection {
+            near: -10.,
+            far: 10.,
+            scale: 1. / 100.,
+            ..default()
+        },
+        ..default()
+    });
+
+    // Spawn the i and j basis vectors
+    commands.spawn((
+        SpriteBundle {
+            sprite: Sprite {
+                color: bevy::color::palettes::tailwind::BLUE_500.into(),
+                custom_size: Some(Vec2::new(0.1, 0.1)),
+                ..default()
+            },
+            transform: Transform::from_xyz(1., 0., 0.),
+            ..default()
+        },
+        IsBasisVectorI,
+    ));
+
+    commands.spawn((
+        SpriteBundle {
+            sprite: Sprite {
+                color: bevy::color::palettes::tailwind::RED_500.into(),
+                custom_size: Some(Vec2::new(0.1, 0.1)),
+                ..default()
+            },
+            transform: Transform::from_xyz(0., 1., 0.),
+            ..default()
+        },
+        IsBasisVectorJ,
+    ));
 }
 
 /// Toggle the debug outlines around nodes.
