@@ -6,9 +6,6 @@ use nom::{InputIter, InputTake};
 use std::iter::Enumerate;
 
 /// A list of tokens.
-///
-/// The `'l` lifetime is the life of the list itself, and the `'n` lifetime is the life of the
-/// [`MatrixName`](crate::matrix::MatrixName) variant in [`Token`].
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TokenList<'l> {
     /// The list of tokens themselves.
