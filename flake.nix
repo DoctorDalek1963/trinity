@@ -47,10 +47,7 @@
           ];
         };
 
-        # rustToolchainStable = pkgs.rust-bin.stable.latest.default;
-        rustToolchainNightlyWith = extra: pkgs.rust-bin.selectLatestNightlyWith (toolchain: toolchain.default.override extra);
-
-        rustToolchain = rustToolchainNightlyWith {};
+        rustToolchain = pkgs.rust-bin.selectLatestNightlyWith (toolchain: toolchain.default);
 
         craneLib = (inputs.crane.mkLib pkgs).overrideToolchain rustToolchain;
 
@@ -96,7 +93,7 @@
         devShells.default = pkgs.mkShell {
           nativeBuildInputs =
             [
-              (rustToolchainNightlyWith {
+              (rustToolchain.override {
                 targets = ["wasm32-unknown-unknown"];
                 extensions = ["rust-analyzer" "rust-src" "rust-std"];
               })
