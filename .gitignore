@@ -7,3 +7,6 @@
 /target
 mutants.out/
 mutants.out.old/
+
+# Trunk
+/dist/

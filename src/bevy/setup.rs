@@ -6,7 +6,20 @@ use bevy::prelude::*;
 /// Start Bevy and setup everything needed for Trinity's graphics.
 pub fn run_bevy() -> AppExit {
     let mut app = App::new();
-    app.add_plugins(DefaultPlugins).add_systems(Startup, setup);
+    app.add_plugins(DefaultPlugins.set(WindowPlugin {
+        primary_window: Some(Window {
+            title: String::from("Trinity"),
+
+            // Wasm
+            canvas: Some(String::from("#trinity-bevy")),
+            fit_canvas_to_parent: true,
+            prevent_default_event_handling: true,
+
+            ..default()
+        }),
+        ..default()
+    }))
+    .add_systems(Startup, setup);
 
     #[cfg(feature = "dev_tools")]
     {

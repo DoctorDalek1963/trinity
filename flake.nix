@@ -34,7 +34,17 @@
       }: let
         pkgs = import inputs.nixpkgs {
           inherit system;
-          overlays = [(import inputs.rust-overlay)];
+          overlays = [
+            (import inputs.rust-overlay)
+            (_final: prev: {
+              # This version needs to be kept up-to-date with the version in Cargo.lock
+              wasm-bindgen-cli = prev.wasm-bindgen-cli.override {
+                version = "0.2.93";
+                hash = "sha256-DDdu5mM3gneraM85pAepBXWn3TMofarVR4NbjMdz3r0=";
+                cargoHash = "sha256-birrg+XABBHHKJxfTKAMSlmTVYLmnmqMDfRnmG6g/YQ=";
+              };
+            })
+          ];
         };
 
         # rustToolchainStable = pkgs.rust-bin.stable.latest.default;
@@ -43,7 +53,14 @@
         rustToolchain = rustToolchainNightlyWith {};
 
         craneLib = (inputs.crane.mkLib pkgs).overrideToolchain rustToolchain;
-        src = craneLib.cleanCargoSource (craneLib.path ./.);
+
+        src = pkgs.lib.cleanSourceWith {
+          src = ./.;
+          filter = path: type:
+            (pkgs.lib.hasSuffix "\.html" path)
+            || (pkgs.lib.hasSuffix "\.ico" path)
+            || (craneLib.filterCargoSources path type);
+        };
 
         commonArgs = {
           inherit src;
@@ -92,6 +109,8 @@
               cargo-tarpaulin
               fd
               just
+              trunk
+              wasm-bindgen-cli
             ]);
           shellHook = ''
             ${config.pre-commit.installationScript}
@@ -176,6 +195,19 @@
 
               meta.mainProgram = "trinity";
             };
+
+          trinity-web = let
+            craneLibTrunk = (inputs.crane.mkLib pkgs).overrideToolchain (rustToolchain.override {
+              targets = ["wasm32-unknown-unknown"];
+            });
+          in
+            craneLibTrunk.buildTrunkPackage (commonArgs
+              // {
+                pname = "trinity-web";
+                trunkIndexPath = "index.html";
+                inherit cargoArtifacts;
+                inherit (craneLibTrunk.crateNameFromCargoToml {inherit src;}) version;
+              });
 
           doc = craneLib.cargoDoc (commonArgs
             // {
