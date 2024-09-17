@@ -204,6 +204,7 @@
                 trunkIndexPath = "index.html";
                 inherit cargoArtifacts;
                 inherit (craneLibTrunk.crateNameFromCargoToml {inherit src;}) version;
+                inherit (pkgs) wasm-bindgen-cli;
               });
 
           doc = craneLib.cargoDoc (commonArgs
