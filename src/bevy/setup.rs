@@ -1,4 +1,4 @@
-//! This module provides [`start_bevy`], the entrypoint for Trinity's Bevy runtime.
+//! This module provides [`run_bevy`], the entrypoint for Trinity's Bevy runtime.
 
 use super::{IsBasisVectorI, IsBasisVectorJ};
 use bevy::prelude::*;
