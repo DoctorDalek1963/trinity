@@ -3,7 +3,7 @@ name = "trinity"
 version = "0.1.0"
 edition = "2021"
 authors = ["Dyson Dyson <dyson.dyson@icloud.com>"]
-repository = "https://github.com/DoctorDalek1963/winter-wonderlights"
+repository = "https://github.com/DoctorDalek1963/trinity"
 license = "AGPL-3.0-only"
 publish = false
 
