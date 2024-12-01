@@ -2,7 +2,7 @@
   description = "Trinity, a program to visualise and interact with matrices";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
     flake-parts.url = "github:hercules-ci/flake-parts";
 
     pre-commit-hooks = {
@@ -14,10 +14,7 @@
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    crane = {
-      url = "github:ipetkov/crane";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    crane.url = "github:ipetkov/crane";
   };
 
   outputs = inputs @ {flake-parts, ...}:
