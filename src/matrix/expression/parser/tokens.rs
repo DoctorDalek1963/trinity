@@ -24,7 +24,7 @@ impl<'l> TokenList<'l> {
     }
 }
 
-impl<'l> InputTake for TokenList<'l> {
+impl InputTake for TokenList<'_> {
     fn take(&self, count: usize) -> Self {
         Self {
             tokens: &self.tokens[0..count],
