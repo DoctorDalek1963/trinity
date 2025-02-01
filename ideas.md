@@ -12,6 +12,8 @@ What about non-square matrices like `[1 0 0; 0 1 0]`? This one projects a 3D vec
 
 If we allow functions, should it be a completely separate system, like a dialog box that prompts for function name, variable bindings, and function body separately? I think so, or else we'd need a new syntax for function definition. And then where is it done? Inline with other expressions? Either way we'd need a custom character to prefix function calls to avoid ambiguity with named vectors and matrices, like `@ProjectXY(v)`. But then should `rot` be treated specially anymore? Perhaps real functions for rotation would be good, but they'd have to be defined natively, which is fine.
 
+This syntax is silly! Just tokenise identifiers starting with a lowercase letter as identifiers and then determine what they are at parse time with more context. So `a b` is multiplication (assuming we allow scalar variables), `a*b` is multiplication, `a(b)` and `a ( b )` are function calls, and `a*(b)` is multiplication again.
+
 And then what about scope bindings? Should functions be able to access variables defined globally?
 
 # Restart work on Bevy
